@@ -103,7 +103,7 @@ export function Topbar({ connected, latency, activeCase, activeView, onViewChang
 
       {/* Right: Time + Reset */}
       <div className="flex items-center gap-6">
-        <span className="font-mono text-text-dim text-lg tabular-nums">
+        <span suppressHydrationWarning className="font-mono text-text-dim text-lg tabular-nums">
           {currentTime}
         </span>
 
