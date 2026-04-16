@@ -45,7 +45,9 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
   const containerRef = useRef<HTMLDivElement>(null)
   const [progress, setProgress] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
+  const [viewportWidth, setViewportWidth] = useState(0)
   const accumulatedScroll = useRef(0)
+  const completionTriggeredRef = useRef(false)
 
   // Generate rain drops - softer, fewer drops
   const rainDrops = useMemo(() => {
@@ -61,6 +63,8 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
 
   // Total scroll distance needed to complete the animation (higher = slower)
   const SCROLL_DISTANCE = 1800
+  const AMBULANCE_WIDTH = 300
+  const AMBULANCE_END_OFFSET = 120
 
   const handleWheel = useCallback((e: WheelEvent) => {
     if (isComplete) return
@@ -84,9 +88,20 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
     }
 
     // Check if animation is complete
-    if (newProgress >= 1 && !isComplete) {
+    if (newProgress >= 1 && !completionTriggeredRef.current) {
+      completionTriggeredRef.current = true
       setIsComplete(true)
       onAnimationComplete()
+
+      // Hand off to natural page scrolling once the hero finishes.
+      requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          window.scrollTo({
+            top: window.innerHeight - 80,
+            behavior: "smooth",
+          })
+        }, 60)
+      })
     }
   }, [isComplete, ambulanceData, onAnimationComplete])
 
@@ -108,6 +123,17 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
     }
   }, [ambulanceData])
 
+  useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth)
+
+    updateViewportWidth()
+    window.addEventListener("resize", updateViewportWidth)
+
+    return () => {
+      window.removeEventListener("resize", updateViewportWidth)
+    }
+  }, [])
+
   // Content reveal timing based on progress (smoother, more staggered)
   const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
   
@@ -127,9 +153,13 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
   // Hover animation continues even after moving up
   const hoverOffset = "translateY(var(--hover-offset))"
 
-  // Ambulance position: starts off-screen left (-30%), moves to off-screen right (110%)
-  // The Lottie is flipped, so as it plays frame 0->500, it visually moves right
-  const ambulanceX = -30 + (progress * 140) // -30% to 110%
+  // Move from fully off-screen left to a fixed stop point before the right edge.
+  const ambulanceStartX = -AMBULANCE_WIDTH
+  const ambulanceEndX = Math.max(
+    0,
+    viewportWidth - AMBULANCE_WIDTH - AMBULANCE_END_OFFSET,
+  )
+  const ambulanceX = ambulanceStartX + (progress * (ambulanceEndX - ambulanceStartX))
 
   return (
     <section 
@@ -157,7 +187,7 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
       <div 
         className="absolute top-1/2 w-[600px] h-[400px] rounded-full pointer-events-none transition-all duration-150"
         style={{
-          left: `${ambulanceX + 15}%`,
+          left: `${ambulanceX + AMBULANCE_WIDTH / 2}px`,
           transform: "translate(-50%, -50%)",
           background: "radial-gradient(ellipse, rgba(255,59,59,0.5) 0%, rgba(255,59,59,0.2) 40%, transparent 70%)",
           filter: "blur(40px)",
@@ -260,8 +290,8 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
       <div 
         className="absolute bottom-24 h-40 md:h-48 pointer-events-none z-20"
         style={{
-          left: `${ambulanceX}%`,
-          width: "300px",
+          left: `${ambulanceX}px`,
+          width: `${AMBULANCE_WIDTH}px`,
           transition: "left 50ms linear",
         }}
       >
