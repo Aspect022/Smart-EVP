@@ -31,7 +31,7 @@ export function SignalPanel({ state, latency, preemptionCount }: SignalPanelProp
   const config = stateConfig[state]
 
   return (
-    <div className="flex h-full flex-col bg-bg2 p-4">
+    <div className="bg-bg2 p-4">
       <div className="mb-4">
         <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
           Intersection Control
@@ -47,7 +47,7 @@ export function SignalPanel({ state, latency, preemptionCount }: SignalPanelProp
         <p className="mt-1 text-xs text-text-dim">{config.label}</p>
       </div>
 
-      <div className="mt-4 flex-1 rounded-sm border border-border bg-bg p-3">
+      <div className="mt-4 rounded-sm border border-border bg-bg p-3">
         <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
           Operational metrics
         </div>
