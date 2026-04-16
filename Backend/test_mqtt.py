@@ -1,4 +1,4 @@
-"""
+r"""
 SmartEVP+ — MQTT Connection Test
 Run with: .venv\Scripts\python test_mqtt.py
 """
@@ -53,10 +53,10 @@ def main():
     client.disconnect()
 
     if received:
-        print("\n✅ MQTT broker is working correctly!")
+        print("\n[SUCCESS] MQTT broker is working correctly!")
         print("   Ready for SmartEVP+ backend.")
     else:
-        print("\n❌ No message received — something went wrong.")
+        print("\n[ERROR] No message received — something went wrong.")
 
 if __name__ == "__main__":
     main()
