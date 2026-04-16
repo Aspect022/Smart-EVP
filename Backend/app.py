@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 import threading
@@ -234,6 +235,74 @@ def trigger_demo_audio():
     """Trigger the audio processing pipeline (requires audio_processor to be running)"""
     mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
     return jsonify({"status": "audio_pipeline_triggered"})
+
+@app.route("/api/audio/upload", methods=["POST"])
+def upload_audio():
+    """Endpoint for paramedic to upload voice recording"""
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+        
+    audio_file = request.files["audio"]
+    if audio_file.filename == '':
+        return jsonify({"error": "Empty file"}), 400
+        
+    os.makedirs(Config.AUDIO_DIR, exist_ok=True)
+    file_path = os.path.join(Config.AUDIO_DIR, "emergency.wav")
+    audio_file.save(file_path)
+    logger.info(f"Saved incoming audio recording to {file_path}")
+    
+    # Trigger pipeline
+    mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
+    log_event("AUDIO_UPLOAD", "Paramedic voice report submitted")
+    
+    return jsonify({"status": "ok", "message": "Audio processing started"})
+
+@app.route("/demo/full-flow", methods=["POST"])
+def full_demo_flow():
+    """Scripted 3-laptop demo trigger with precise timing"""
+    def script_flow():
+        # 1. New Case (Admin sees it immediately)
+        demo_case = {
+            "id": f"C{int(time.time() % 10000):04d}",
+            "severity": "CRITICAL",
+            "location": "BTM Layout, Bengalure",
+            "complaint": "Heart attack patient, chest pain",
+            "ambulanceId": "AMB-001",
+            "timestamp": int(time.time() * 1000)
+        }
+        mqtt_client.publish("smartevp/dispatch/case", json.dumps(demo_case))
+        time.sleep(1)
+        
+        # 2. Dispatch the ambulance
+        system_state["case_status"] = "DISPATCHED"
+        socketio.emit("case_status_update", {"status": "DISPATCHED"})
+        
+        # 3. Start GPS
+        route_file = os.path.join(Config.BASE_DIR, "gps_route.json")
+        if os.path.exists(route_file):
+            threading.Thread(
+                target=replay_route, 
+                args=(route_file, f"http://localhost:{Config.FLASK_PORT}/gps", 1.0), 
+                daemon=True
+            ).start()
+        time.sleep(5)
+        
+        # 4. En route to hospital with ETA
+        system_state["case_status"] = "EN_ROUTE_HOSPITAL"
+        socketio.emit("case_status_update", {"status": "EN_ROUTE_HOSPITAL"})
+        system_state["eta_seconds"] = 120
+        socketio.emit("eta_update", {"etaSeconds": 120})
+        time.sleep(2)
+        
+        # 5. Trigger Audio Processing (Generates brief)
+        mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
+        
+    threading.Thread(target=script_flow, daemon=True).start()
+    return jsonify({"status": "script_started"})
+
+@app.route("/api/health/network", methods=["GET"])
+def health_network():
+    return jsonify({"ip": Config.FLASK_HOST, "port": Config.FLASK_PORT})
 
 # ── SocketIO Events ────────────────────────────────────────────────────
 

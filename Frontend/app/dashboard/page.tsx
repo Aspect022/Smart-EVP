@@ -106,6 +106,10 @@ function DashboardContent() {
             brief={medicalBrief}
             transcript={transcript}
             activeCase={activeCase}
+            distance={distance}
+            connected={connected}
+            caseStatus={caseStatus}
+            etaSeconds={etaSeconds}
           />
         )}
       </div>

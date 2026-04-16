@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { MapPanel } from "@/components/dashboard/map-panel"
-import { Activity, Heart, Droplets, Brain, Navigation, Clock, CheckCircle } from "lucide-react"
+import { Navigation, Clock, CheckCircle } from "lucide-react"
 import type { CaseStatus } from "@/hooks/use-socket"
+import { AmbulanceAudioPanel } from "./ambulance-audio-panel"
 
 interface AmbulanceViewProps {
   gps: any
@@ -16,28 +17,6 @@ interface AmbulanceViewProps {
 }
 
 export function AmbulanceView({ gps, signal, distance, intersectionCoords, connected, caseStatus, etaSeconds }: AmbulanceViewProps) {
-  const [pulse, setPulse] = useState(false)
-
-  // Simulation state for vitals
-  const [vitals, setVitals] = useState({
-    bp: "120/80",
-    hr: "85",
-    spo2: "98",
-    gcs: "15"
-  })
-
-  const sendSimulatedVitals = async () => {
-    try {
-      setPulse(true)
-      setTimeout(() => setPulse(false), 1000)
-      
-      // We would normally POST to backend here to broadcast medical brief update.
-      // But for this mockup, we just highlight the button.
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/demo/audio`, { method: "POST" }).catch(() => {})
-    } catch (e) {
-      console.error(e)
-    }
-  }
 
   const updateStatus = async (status: CaseStatus, eta?: number) => {
     try {
@@ -183,67 +162,8 @@ export function AmbulanceView({ gps, signal, distance, intersectionCoords, conne
         </div>
       </div>
 
-      {/* Paramedic Input Sidebar */}
-      <div className="w-80 bg-bg p-6 flex flex-col shrink-0 overflow-y-auto border-l border-border">
-         <h2 className="font-sans font-bold text-xl text-text mb-6">Paramedic Entry</h2>
-         
-         <div className="space-y-4 mb-8">
-            <div>
-              <label className="text-xs font-mono text-text-muted uppercase tracking-widest mb-2 flex items-center gap-2">
-                <Activity className="w-3 h-3"/> Blood Pressure
-              </label>
-              <input 
-                value={vitals.bp} 
-                onChange={(e) => setVitals({...vitals, bp: e.target.value})}
-                className="w-full bg-bg3 border border-border rounded-sm px-3 py-2 text-text font-mono focus:border-cyan focus:outline-none" 
-              />
-            </div>
-            <div>
-              <label className="text-xs font-mono text-text-muted uppercase tracking-widest mb-2 flex items-center gap-2">
-                <Heart className="w-3 h-3 text-red"/> Heart Rate
-              </label>
-              <input 
-                value={vitals.hr} 
-                onChange={(e) => setVitals({...vitals, hr: e.target.value})}
-                className="w-full bg-bg3 border border-border rounded-sm px-3 py-2 text-text font-mono focus:border-cyan focus:outline-none" 
-              />
-            </div>
-            <div>
-              <label className="text-xs font-mono text-text-muted uppercase tracking-widest mb-2 flex items-center gap-2">
-                <Droplets className="w-3 h-3 text-amber"/> SpO2
-              </label>
-              <input 
-                value={vitals.spo2} 
-                onChange={(e) => setVitals({...vitals, spo2: e.target.value})}
-                className="w-full bg-bg3 border border-border rounded-sm px-3 py-2 text-text font-mono focus:border-cyan focus:outline-none" 
-              />
-            </div>
-            <div>
-              <label className="text-xs font-mono text-text-muted uppercase tracking-widest mb-2 flex items-center gap-2">
-                <Brain className="w-3 h-3"/> GCS
-              </label>
-              <input 
-                value={vitals.gcs} 
-                onChange={(e) => setVitals({...vitals, gcs: e.target.value})}
-                className="w-full bg-bg3 border border-border rounded-sm px-3 py-2 text-text font-mono focus:border-cyan focus:outline-none" 
-              />
-            </div>
-         </div>
-
-         <div className="mt-auto">
-            <button 
-              onClick={sendSimulatedVitals}
-              className={`w-full py-3 rounded-sm font-mono font-bold text-sm uppercase tracking-wider transition-all ${
-                pulse ? "bg-purple text-bg shadow-[0_0_20px_rgba(167,139,250,0.5)]" : "bg-purple/10 text-purple border border-purple/30 hover:bg-purple/20"
-              }`}
-            >
-              Transmit Vitals
-            </button>
-            <p className="text-center text-[10px] text-text-muted font-mono mt-3">
-              Syncs to Hospital ERIS via Socket
-            </p>
-         </div>
-      </div>
+      {/* Paramedic Audio Input Sidebar */}
+      <AmbulanceAudioPanel />
     </div>
   )
 }
