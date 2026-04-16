@@ -1,14 +1,13 @@
 import os
 import json
 import logging
+import os
 import threading
 import time
 import paho.mqtt.client as mqtt
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO
 from flask_cors import CORS
-from pathlib import Path
-
 from config import Config
 from audit_log import log_event, init_db
 from gps_replay import replay_route
@@ -42,8 +41,9 @@ system_state = {
     "brief": None,
     "transcript": "",
     "distance": None,
-    "case_status": "CALL_RECEIVED",
-    "eta_seconds": None
+    "driver_status": "AVAILABLE",
+    "driver": None,
+    "accepted_case_id": None,
 }
 
 # ── MQTT Setup ────────────────────────────────────────────────────────
@@ -91,6 +91,9 @@ def on_message(client, userdata, msg):
             
         elif topic == "smartevp/dispatch/case":
             system_state["case"] = payload
+            system_state["driver_status"] = "DISPATCHED"
+            system_state["driver"] = None
+            system_state["accepted_case_id"] = None
             event_name = "new_case"
             log_event("CASE_OPENED", f"Case {payload.get('id')} — {payload.get('severity')} - {payload.get('location')}")
             
@@ -109,6 +112,13 @@ def on_message(client, userdata, msg):
         elif topic == "smartevp/dispatch/sms_sent":
             event_name = "dispatch_sms"
             log_event("SMS_SENT", f"Ambulance notified — {payload.get('ambulance')}")
+
+        elif topic == "smartevp/driver/accepted":
+            system_state["driver_status"] = "ACCEPTED"
+            system_state["driver"] = payload
+            system_state["accepted_case_id"] = payload.get("case_id")
+            event_name = "driver_accepted"
+            log_event("DRIVER_ACCEPTED", f"{payload.get('driver_id', 'UNKNOWN')} accepted case {payload.get('case_id')}")
 
         # If we mapped the topic, broadcast it to all connected frontend clients
         if event_name:
@@ -139,6 +149,61 @@ def get_state():
     """Return the entire current state"""
     return jsonify(system_state)
 
+
+@app.route("/api/mobile/state", methods=["GET"])
+def get_mobile_state():
+    brief = system_state.get("brief")
+    medical_brief = brief.get("brief") if isinstance(brief, dict) and "brief" in brief else brief
+
+    return jsonify({
+        "connected": system_state.get("connected", False),
+        "signal_state": system_state.get("signal", "RED"),
+        "active_case": system_state.get("case"),
+        "medical_brief": medical_brief,
+        "transcript": system_state.get("transcript", ""),
+        "distance_m": system_state.get("distance"),
+        "eta_seconds": estimate_eta_seconds(),
+        "driver_status": system_state.get("driver_status", "AVAILABLE"),
+        "driver": system_state.get("driver"),
+        "gps": system_state.get("gps"),
+    })
+
+
+@app.route("/api/eta", methods=["GET"])
+def get_eta():
+    return jsonify({
+        "eta_seconds": estimate_eta_seconds(),
+        "distance_m": system_state.get("distance"),
+        "signal_state": system_state.get("signal", "RED"),
+    })
+
+
+@app.route("/api/driver/accept", methods=["POST"])
+def accept_driver_case():
+    data = request.get_json(silent=True) or {}
+    case_id = data.get("case_id")
+    driver_id = data.get("driver_id", "D001")
+    driver_name = data.get("driver_name")
+
+    active_case = system_state.get("case")
+    if not active_case:
+        return jsonify({"error": "No active case"}), 409
+
+    active_case_id = active_case.get("id") or active_case.get("case_id")
+    if case_id and active_case_id and case_id != active_case_id:
+        return jsonify({"error": "Case mismatch", "active_case_id": active_case_id}), 409
+
+    accepted_payload = {
+        "case_id": active_case_id,
+        "driver_id": driver_id,
+        "driver_name": driver_name,
+        "ambulance_id": active_case.get("ambulanceId"),
+        "ts": int(time.time() * 1000),
+    }
+
+    mqtt_client.publish("smartevp/driver/accepted", json.dumps(accepted_payload), qos=1)
+    return jsonify({"status": "accepted", "payload": accepted_payload})
+
 @app.route("/api/reset", methods=["POST"])
 def reset_state():
     """Reset the demo state"""
@@ -149,8 +214,9 @@ def reset_state():
     system_state["transcript"] = ""
     system_state["distance"] = None
     system_state["latency"] = None
-    system_state["case_status"] = "CALL_RECEIVED"
-    system_state["eta_seconds"] = None
+    system_state["driver_status"] = "AVAILABLE"
+    system_state["driver"] = None
+    system_state["accepted_case_id"] = None
     
     # Notify hardware to reset
     mqtt_client.publish("smartevp/signal/reset", json.dumps({"reason": "api_reset"}))
@@ -324,6 +390,26 @@ def heartbeat_task():
         except Exception:
             pass
         time.sleep(5)
+
+
+def estimate_eta_seconds():
+    distance = system_state.get("distance")
+    if distance is not None:
+        try:
+            return max(int(float(distance) / 10), 0)
+        except (TypeError, ValueError):
+            return None
+
+    brief = system_state.get("brief")
+    if isinstance(brief, dict):
+        if brief.get("eta") is not None:
+            return brief.get("eta")
+
+        nested_brief = brief.get("brief")
+        if isinstance(nested_brief, dict):
+            return nested_brief.get("eta")
+
+    return None
 
 if __name__ == "__main__":
     init_db()

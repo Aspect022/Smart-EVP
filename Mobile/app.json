@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "SmartEVP Driver",
+    "slug": "smartevp-driver",
+    "scheme": "smartevp-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#080b12"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.smartevp.driver"
+    },
+    "ios": {
+      "bundleIdentifier": "com.smartevp.driver"
+    },
+    "extra": {
+      "backendUrl": ""
+    }
+  }
+}
+
