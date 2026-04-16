@@ -101,7 +101,6 @@ export function AmbulanceView({
         </div>
 
         <div className="flex-1 p-3">
-          {/* Use the same map system as Admin until Google Maps integration is finalized. */}
           <MapPanel
             gpsData={gps}
             signalState={signal}

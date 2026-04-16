@@ -14,9 +14,9 @@ class Config:
     FLASK_PORT = 8080
     
     # ── GPS Target (Intersection) ──────────────────────────────────
-    # Example intersection coordinates in Bengaluru
-    TARGET_LAT = 12.9300
-    TARGET_LNG = 77.6100
+    # Dayananda Sagar University, Harohalli campus area
+    TARGET_LAT = 12.7186
+    TARGET_LNG = 77.4944
     PREEMPTION_RADIUS_M = 500  # Distance at which to turn light GREEN
     RESET_RADIUS_M = 650       # Distance at which to reset to RED
     

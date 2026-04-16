@@ -11,6 +11,11 @@ interface HeroSectionProps {
   onAnimationComplete: () => void
 }
 
+function seededValue(index: number, salt: number) {
+  const raw = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453
+  return raw - Math.floor(raw)
+}
+
 // Rain drop component - diagonal rain falling from right to left (wind blowing left)
 function RainDrop({ delay, duration, left, height, opacity }: { 
   delay: number
@@ -53,11 +58,11 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
   const rainDrops = useMemo(() => {
     return Array.from({ length: 80 }, (_, i) => ({
       id: i,
-      delay: Math.random() * 4,
-      duration: 2 + Math.random() * 2, // slower: 2s to 4s
-      left: -10 + Math.random() * 120, // spread for diagonal entry from right
-      height: 30 + Math.random() * 50, // subtle streaks: 30-80px
-      opacity: 0.15 + Math.random() * 0.25, // softer opacity
+      delay: seededValue(i, 1) * 4,
+      duration: 2 + seededValue(i, 2) * 2, // slower: 2s to 4s
+      left: -10 + seededValue(i, 3) * 120, // spread for diagonal entry from right
+      height: 30 + seededValue(i, 4) * 50, // subtle streaks: 30-80px
+      opacity: 0.15 + seededValue(i, 5) * 0.25, // softer opacity
     }))
   }, [])
 

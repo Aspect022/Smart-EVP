@@ -7,7 +7,7 @@ import { AdminView } from "@/components/dashboard/views/admin-view"
 import { useSocket } from "@/hooks/use-socket"
 import { getBackendUrl } from "@/lib/socket"
 
-const INTERSECTION_COORDS = { lat: 12.93, lng: 77.61 }
+const INTERSECTION_COORDS = { lat: 12.7186, lng: 77.4944 }
 
 function AdminConsoleContent() {
   const {
