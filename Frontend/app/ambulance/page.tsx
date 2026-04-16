@@ -3,16 +3,17 @@
 import { Suspense } from "react"
 
 import { ConsoleHeader } from "@/components/console/console-header"
-import { HospitalView } from "@/components/dashboard/views/hospital-view"
+import { AmbulanceView } from "@/components/dashboard/views/ambulance-view"
 import { useSocket } from "@/hooks/use-socket"
 
-function HospitalReadinessContent() {
+const INTERSECTION_COORDS = { lat: 12.93, lng: 77.61 }
+
+function AmbulanceConsoleContent() {
   const {
-    brief,
-    transcript,
-    case: activeCase,
-    distance,
     connected,
+    gps,
+    signal,
+    distance,
     caseStatus,
     etaSeconds,
   } = useSocket()
@@ -20,17 +21,17 @@ function HospitalReadinessContent() {
   return (
     <div className="min-h-screen bg-bg text-text">
       <ConsoleHeader
-        title="Hospital Readiness Console"
-        subtitle="This station remains on standby until a transported patient is confirmed. Once the patient is picked up, it shifts into active clinical preparation with ETA, transcript, and readiness tasks."
-        consoleLabel="Hospital Station"
+        title="Ambulance Console"
+        subtitle="Navigation, transport state, ETA, and paramedic voice reporting are handled here. This station becomes active after dispatch and remains focused on transport and handoff."
+        consoleLabel="Ambulance Unit"
         connected={connected}
       />
       <main className="h-[calc(100vh-97px)]">
-        <HospitalView
-          brief={brief}
-          transcript={transcript}
-          activeCase={activeCase}
+        <AmbulanceView
+          gps={gps}
+          signal={signal}
           distance={distance}
+          intersectionCoords={INTERSECTION_COORDS}
           connected={connected}
           caseStatus={caseStatus}
           etaSeconds={etaSeconds}
@@ -40,10 +41,10 @@ function HospitalReadinessContent() {
   )
 }
 
-export default function HospitalReadinessPage() {
+export default function AmbulanceConsolePage() {
   return (
     <Suspense fallback={<div className="h-screen bg-bg" />}>
-      <HospitalReadinessContent />
+      <AmbulanceConsoleContent />
     </Suspense>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
+import { Ambulance, GitBranch, Plus } from "lucide-react"
 
 // Leaflet requires client-side only rendering
 const MapContainer = dynamic(
@@ -183,22 +184,16 @@ export function MapPanel({ gpsData, signalState, intersectionCoords = DEFAULT_IN
         )}
       </div>
 
-      {/* Legend */}
-      <div className="absolute bottom-4 right-4 z-[1000] px-4 py-3 bg-card/90 backdrop-blur-sm border border-border rounded-sm">
-        <div className="space-y-2 text-xs font-mono">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red" style={{ boxShadow: "0 0 8px rgba(255,59,59,0.5)" }} />
-            <span className="text-text-muted">Ambulance</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-sm bg-cyan" />
-            <span className="text-text-muted">Intersection</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-[2px] bg-red opacity-50" style={{ borderStyle: "dashed" }} />
-            <span className="text-text-muted">Route</span>
-          </div>
-        </div>
+      <div className="absolute bottom-4 right-4 z-[1000] flex flex-col items-center gap-1 rounded-sm border border-border bg-card/90 px-2 py-2 backdrop-blur-sm">
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-red/30 bg-red/10 text-red" title="Ambulance">
+          <Ambulance className="h-3.5 w-3.5" />
+        </span>
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-cyan/30 bg-cyan/10 text-cyan" title="Intersection">
+          <Plus className="h-3.5 w-3.5" />
+        </span>
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-sm border border-amber/30 bg-amber/10 text-amber" title="Route">
+          <GitBranch className="h-3.5 w-3.5" />
+        </span>
       </div>
     </div>
   )

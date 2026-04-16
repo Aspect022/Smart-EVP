@@ -1,7 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { MapPin, MessageSquare, Ambulance, Smartphone, CheckCircle } from "lucide-react"
+import { Ambulance, MapPin, MessageSquare, PhoneCall } from "lucide-react"
 
 interface CaseData {
   id: string
@@ -9,8 +8,6 @@ interface CaseData {
   location: string
   complaint: string
   ambulanceId: string
-  smsDelivered: boolean
-  driverNotified: boolean
   timestamp: number
 }
 
@@ -19,121 +16,77 @@ interface CaseCardProps {
 }
 
 export function CaseCard({ caseData }: CaseCardProps) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [smsTimer, setSmsTimer] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (caseData) {
-      // Trigger slide-in animation
-      setIsVisible(true)
-
-      // SMS timer
-      if (caseData.smsDelivered) {
-        const interval = setInterval(() => {
-          const elapsed = Math.floor((Date.now() - caseData.timestamp) / 1000)
-          setSmsTimer(`${elapsed}s ago`)
-        }, 1000)
-        return () => clearInterval(interval)
-      }
-    } else {
-      setIsVisible(false)
-    }
-  }, [caseData])
-
   if (!caseData) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-bg3 flex items-center justify-center mb-4">
-          <Ambulance className="w-8 h-8 text-text-muted" />
+      <div className="flex h-full flex-col justify-center bg-bg2 p-4">
+        <div className="rounded-md border border-border bg-bg p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <Ambulance className="h-5 w-5 text-text-muted" />
+            <h3 className="font-mono text-lg font-semibold uppercase tracking-[0.12em] text-text">No Active Case</h3>
+          </div>
+          <p className="text-sm leading-6 text-text-dim">
+            The dispatch desk is waiting for a new emergency call. When a call arrives,
+            the case summary, location, and assigned unit will appear here.
+          </p>
         </div>
-        <h3 className="font-sans font-semibold text-lg text-text-dim mb-2">
-          No Active Case
-        </h3>
-        <p className="text-sm text-text-muted">
-          Awaiting emergency dispatch...
-        </p>
       </div>
     )
   }
 
   return (
-    <div 
-      className={`h-full p-6 transition-all duration-400 ease-out ${
-        isVisible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
-      }`}
-      style={{ transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-sans font-bold text-xl text-text">
-          CASE #{caseData.id}
-        </h2>
-        <span 
-          className={`px-2 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider rounded-sm animate-pulse ${
-            caseData.severity === "CRITICAL" 
-              ? "bg-red/10 text-red border border-red/30" 
-              : "bg-amber/10 text-amber border border-amber/30"
-          }`}
-        >
-          {caseData.severity === "CRITICAL" ? "P1 — CRITICAL" : "P2 — HIGH"}
-        </span>
-      </div>
-
-      {/* Divider */}
-      <div className="h-px bg-border mb-6" />
-
-      {/* Info Items */}
-      <div className="space-y-4">
-        {/* Location */}
-        <div className="flex items-start gap-3">
-          <MapPin className="w-5 h-5 text-text-muted flex-shrink-0 mt-0.5" />
+    <div className="flex h-full flex-col bg-bg2 p-4">
+      <div className="rounded-md border border-border bg-bg p-4">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-text">{caseData.location}</p>
+            <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+              Active incident
+            </div>
+            <h2 className="mt-1 font-mono text-xl font-semibold uppercase tracking-[0.1em] text-text">Case #{caseData.id}</h2>
           </div>
+          <span className="rounded-sm border border-red/30 bg-red/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-red">
+            {caseData.severity}
+          </span>
         </div>
 
-        {/* Complaint */}
-        <div className="flex items-start gap-3">
-          <MessageSquare className="w-5 h-5 text-text-muted flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-text-dim">{caseData.complaint}</p>
-          </div>
-        </div>
-
-        {/* Ambulance */}
-        <div className="flex items-start gap-3">
-          <Ambulance className="w-5 h-5 text-cyan flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-text">
-              <span className="text-cyan font-mono">{caseData.ambulanceId}</span> Dispatched
-            </p>
-          </div>
-        </div>
-
-        {/* SMS Status */}
-        {caseData.smsDelivered && (
+        <div className="space-y-3 text-sm">
           <div className="flex items-start gap-3">
-            <Smartphone className="w-5 h-5 text-green flex-shrink-0 mt-0.5" />
+            <MapPin className="mt-0.5 h-4 w-4 text-text-muted" />
             <div>
-              <p className="text-sm text-text">
-                SMS Delivered — <span className="text-text-muted">{smsTimer}</span>
-              </p>
+              <div className="text-xs font-mono uppercase tracking-[0.18em] text-text-muted">
+                Location
+              </div>
+              <div className="mt-1 text-text">{caseData.location}</div>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* Driver Notified Status */}
-      {caseData.driverNotified && (
-        <div className="mt-8 p-4 bg-green/5 border border-green/20 rounded-sm">
-          <div className="flex items-center gap-3">
-            <CheckCircle className="w-5 h-5 text-green" />
-            <span className="text-sm font-mono text-green uppercase tracking-wider">
-              DRIVER NOTIFIED
-            </span>
+          <div className="flex items-start gap-3">
+            <PhoneCall className="mt-0.5 h-4 w-4 text-text-muted" />
+            <div>
+              <div className="text-xs font-mono uppercase tracking-[0.18em] text-text-muted">
+                Intake status
+              </div>
+              <div className="mt-1 text-text">Call logged and dispatch initiated</div>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <MessageSquare className="mt-0.5 h-4 w-4 text-text-muted" />
+            <div>
+              <div className="text-xs font-mono uppercase tracking-[0.18em] text-text-muted">
+                Complaint
+              </div>
+              <div className="mt-1 text-text-dim">{caseData.complaint}</div>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Ambulance className="mt-0.5 h-4 w-4 text-cyan" />
+            <div>
+              <div className="text-xs font-mono uppercase tracking-[0.18em] text-text-muted">
+                Assigned unit
+              </div>
+              <div className="mt-1 text-text">{caseData.ambulanceId}</div>
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

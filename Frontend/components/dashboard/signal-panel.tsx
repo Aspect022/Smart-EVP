@@ -1,144 +1,70 @@
 "use client"
 
-import { useEffect, useState } from "react"
-
 interface SignalPanelProps {
   state: "RED" | "AMBER" | "GREEN"
   latency: number | null
   preemptionCount: number
 }
 
+const stateConfig = {
+  RED: {
+    label: "Normal traffic mode",
+    color: "text-red",
+    border: "border-red/30",
+    bg: "bg-red/10",
+  },
+  AMBER: {
+    label: "Transition state",
+    color: "text-amber",
+    border: "border-amber/30",
+    bg: "bg-amber/10",
+  },
+  GREEN: {
+    label: "Emergency preemption active",
+    color: "text-green",
+    border: "border-green/30",
+    bg: "bg-green/10",
+  },
+}
+
 export function SignalPanel({ state, latency, preemptionCount }: SignalPanelProps) {
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [displayLatency, setDisplayLatency] = useState<number | null>(null)
-
-  // Animate latency counter
-  useEffect(() => {
-    if (state === "GREEN" && latency !== null) {
-      setIsTransitioning(true)
-      
-      // Animate latency counting up
-      const duration = 300
-      const startTime = performance.now()
-      const animate = (time: number) => {
-        const elapsed = time - startTime
-        const progress = Math.min(elapsed / duration, 1)
-        setDisplayLatency(Math.round(progress * latency))
-        if (progress < 1) requestAnimationFrame(animate)
-      }
-      requestAnimationFrame(animate)
-
-      const timeout = setTimeout(() => setIsTransitioning(false), 1200)
-      return () => clearTimeout(timeout)
-    }
-  }, [state, latency])
-
-  const getSignalColor = () => {
-    switch (state) {
-      case "GREEN": return "var(--green)"
-      case "AMBER": return "var(--amber)"
-      default: return "var(--red)"
-    }
-  }
-
-  const getGlowStyle = () => {
-    switch (state) {
-      case "GREEN": return "0 0 40px rgba(74, 222, 128, 0.5), 0 0 80px rgba(74, 222, 128, 0.3)"
-      case "AMBER": return "0 0 40px rgba(245, 158, 11, 0.5), 0 0 80px rgba(245, 158, 11, 0.3)"
-      default: return "0 0 30px rgba(255, 59, 59, 0.4)"
-    }
-  }
-
-  const getStatusText = () => {
-    switch (state) {
-      case "GREEN": return "PREEMPTION ACTIVE"
-      case "AMBER": return "TRANSITIONING..."
-      default: return "AWAITING DISPATCH"
-    }
-  }
+  const config = stateConfig[state]
 
   return (
-    <div 
-      className={`h-full flex flex-col p-6 transition-all duration-300 ${
-        isTransitioning ? "animate-preemption-flash" : ""
-      }`}
-      style={{
-        borderLeft: `2px solid ${state === "GREEN" ? "var(--green)" : state === "AMBER" ? "var(--amber)" : "var(--border)"}`,
-        transition: "border-color 0.3s ease",
-      }}
-    >
-      {/* Header */}
-      <div className="mb-6">
-        <span className="eyebrow">INTERSECTION</span>
-        <h2 className="font-sans font-bold text-2xl text-text mt-1">INT-01</h2>
+    <div className="flex h-full flex-col bg-bg2 p-4">
+      <div className="mb-4">
+        <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+          Intersection Control
+        </div>
+        <h2 className="mt-1 font-mono text-xl font-semibold uppercase tracking-[0.12em] text-text">INT-01</h2>
       </div>
 
-      {/* Signal Light */}
-      <div className="flex-1 flex items-center justify-center">
-        <div className="relative">
-          {/* Glow ring */}
-          <div 
-            className="absolute inset-0 rounded-full transition-all duration-500"
-            style={{
-              background: `radial-gradient(circle, ${getSignalColor()}20 0%, transparent 70%)`,
-              transform: "scale(1.5)",
-            }}
-          />
-          
-          {/* Main light */}
-          <div 
-            className="relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300"
-            style={{
-              backgroundColor: getSignalColor(),
-              boxShadow: getGlowStyle(),
-            }}
-          >
-            <span className="font-sans font-bold text-2xl text-bg">
-              {state}
-            </span>
-          </div>
+      <div className={`rounded-sm border p-3 ${config.border} ${config.bg}`}>
+        <div className="mb-1 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+          Current state
         </div>
+        <div className={`text-2xl font-semibold ${config.color}`}>{state}</div>
+        <p className="mt-1 text-xs text-text-dim">{config.label}</p>
       </div>
 
-      {/* Status Text */}
-      <div className="text-center mb-6">
-        <p 
-          className="font-sans font-semibold text-lg transition-all duration-300"
-          style={{ color: getSignalColor() }}
-        >
-          {getStatusText()}
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="space-y-4 pt-4 border-t border-border">
-        {state === "GREEN" && displayLatency !== null && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-text-muted">Latency</span>
-            <span className="font-mono font-semibold text-green">
-              {(displayLatency / 1000).toFixed(1)}s
-            </span>
-          </div>
-        )}
-
-        {state === "GREEN" && (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-text-muted">Auth</span>
-            <span className="font-mono text-sm text-green">ECC-256 VERIFIED</span>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-text-muted">Preemptions</span>
-          <span className="font-mono font-semibold text-text">{preemptionCount}</span>
+      <div className="mt-4 flex-1 rounded-sm border border-border bg-bg p-3">
+        <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+          Operational metrics
         </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-text-muted">Avg Latency</span>
-          <span className="font-mono text-text-dim">
-            {preemptionCount > 0 && latency ? `${(latency / 1000).toFixed(1)}s` : "—"}
-          </span>
-        </div>
+        <dl className="space-y-3 text-xs">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-text-muted">Latest latency</dt>
+            <dd className="text-text">{latency !== null ? `${(latency / 1000).toFixed(1)}s` : "--"}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-text-muted">Preemptions today</dt>
+            <dd className="text-text">{preemptionCount}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-text-muted">Controller status</dt>
+            <dd className="text-text">{state === "GREEN" ? "Override granted" : "Monitoring"}</dd>
+          </div>
+        </dl>
       </div>
     </div>
   )
