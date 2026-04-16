@@ -21,7 +21,6 @@ function HospitalReadinessContent() {
     <div className="min-h-screen bg-bg text-text">
       <ConsoleHeader
         title="Hospital Readiness Console"
-        subtitle="This station remains on standby until a transported patient is confirmed. Once the patient is picked up, it shifts into active clinical preparation with ETA, transcript, and readiness tasks."
         consoleLabel="Hospital Station"
         connected={connected}
       />

@@ -22,7 +22,6 @@ function AmbulanceConsoleContent() {
     <div className="min-h-screen bg-bg text-text">
       <ConsoleHeader
         title="Ambulance Console"
-        subtitle="Navigation, transport state, ETA, and paramedic voice reporting are handled here. This station becomes active after dispatch and remains focused on transport and handoff."
         consoleLabel="Ambulance Unit"
         connected={connected}
       />

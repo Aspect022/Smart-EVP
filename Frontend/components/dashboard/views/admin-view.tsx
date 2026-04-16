@@ -1,7 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Activity, PhoneCall, ShieldCheck, Siren } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 
 import { MapPanel } from "@/components/dashboard/map-panel"
 import { SignalPanel } from "@/components/dashboard/signal-panel"
@@ -34,58 +33,53 @@ export function AdminView({
   handleStartDemo,
 }: AdminViewProps) {
   const [audioRunning, setAudioRunning] = useState(false)
-
-  const compactStats = useMemo(
-    () => [
-      {
-        label: "Signal",
-        value: signal,
-        icon: ShieldCheck,
-        tone: signal === "GREEN" ? "text-green" : signal === "AMBER" ? "text-amber" : "text-red",
-      },
-      {
-        label: "Latency",
-        value: latency !== null ? `${(latency / 1000).toFixed(1)}s` : "--",
-        icon: Activity,
-        tone: "text-cyan",
-      },
-      {
-        label: "Preemptions",
-        value: `${preemptionCount}`,
-        icon: Siren,
-        tone: "text-amber",
-      },
-      {
-        label: "Link",
-        value: connected ? "LIVE" : "OFFLINE",
-        icon: PhoneCall,
-        tone: connected ? "text-green" : "text-red",
-      },
-    ],
-    [connected, latency, preemptionCount, signal],
-  )
+  const [revealedCount, setRevealedCount] = useState(0)
 
   const terminalLines = useMemo(() => {
+    const numberSuffix = activeCase ? String(activeCase.id).slice(-3) : "241"
+    const phone = `+91 9XXXX XX${numberSuffix}`
+
     if (!activeCase) {
       return [
-        "[SYSTEM] Portal armed",
-        "[QUEUE] Waiting for call",
-        "[MQTT] Broker live",
+        `Call from number ${phone} received`,
+        "Extracting text from call audio pipeline",
+        "Gemma reasoning started for triage classification",
+        "Ambulance location identified and nearest driver matched",
+        "Driver notified; SMS queue prepared (send integration pending)",
+        "Signal sequence armed: first signal -> second signal -> third signal",
       ]
     }
 
     const lines = [
-      `[CALL] +91 XXXXX${String(activeCase.id).slice(-3)} connected`,
-      `[CLASSIFY] ${activeCase.severity}`,
-      "[TRIAGE] ASL / BSL / MSL",
-      `[DISPATCH] ${activeCase.ambulanceId || "AMB-001"} assigned`,
+      `Call from number ${phone} received`,
+      "Extracting text from call audio pipeline",
+      "Gemma reasoning completed for ASL / BSL / MSL triage",
+      `Ambulance ${activeCase.ambulanceId || "AMB-001"} location resolved`,
+      "Driver notified; SMS dispatch flow queued (integration pending)",
+      "Signal sequence running: first signal -> second signal -> third signal",
     ]
 
-    if (gps) lines.push(`[GPS] ${gps.speed} km/h`)
-    if (medicalBrief) lines.push("[HOSPITAL] Intake forwarded")
+    if (gps) lines.push(`Live speed ${gps.speed} km/h`)
+    if (medicalBrief) lines.push("Hospital intake forwarded with structured brief")
 
     return lines
   }, [activeCase, gps, medicalBrief])
+
+  useEffect(() => {
+    setRevealedCount(0)
+    const timeouts: number[] = []
+
+    terminalLines.forEach((_, index) => {
+      const timeoutId = window.setTimeout(() => {
+        setRevealedCount(index + 1)
+      }, index * 5000)
+      timeouts.push(timeoutId)
+    })
+
+    return () => {
+      timeouts.forEach((id) => window.clearTimeout(id))
+    }
+  }, [terminalLines])
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-bg">
@@ -136,38 +130,27 @@ export function AdminView({
             latency={latency}
             preemptionCount={preemptionCount}
           />
-          <div className="border-t border-border bg-bg p-3">
-            <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-              Live System State
-            </div>
-            <div className="space-y-2">
-              {compactStats.map((item) => {
-                const Icon = item.icon
-                return (
-                  <div key={item.label} className="rounded-sm border border-border bg-bg2 px-3 py-2">
-                    <div className="mb-1 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-                      <Icon className={`h-3.5 w-3.5 ${item.tone}`} />
-                      {item.label}
-                    </div>
-                    <div className={`font-mono text-sm font-semibold ${item.tone}`}>{item.value}</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
         </div>
       </div>
 
-      <div className="h-52 flex-shrink-0 border-t border-border bg-[#081019] px-4 py-3">
-        <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.18em] text-cyan/80">
+      <div className="h-52 flex-shrink-0 border-t border-border bg-black px-4 py-3">
+        <div
+          className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400"
+          style={{ fontFamily: "'Segoe UI', Calibri, Arial, sans-serif" }}
+        >
           Event Logs
         </div>
-        <div className="h-[calc(100%-24px)] overflow-auto rounded-sm border border-cyan/15 bg-bg/60 px-3 py-2">
-          <div className="space-y-2 font-mono text-sm text-text-dim">
-            {terminalLines.map((line, index) => (
-              <div key={`${line}-${index}`} className="flex items-start gap-3 border-b border-cyan/10 pb-2 last:border-b-0 last:pb-0">
-                <span className="text-cyan">[{String(index + 1).padStart(2, "0")}]</span>
-                <span>$ {line}</span>
+        <div className="h-[calc(100%-20px)] overflow-auto bg-black px-2 py-1">
+          <div
+            className="space-y-1 text-sm text-slate-300"
+            style={{
+              fontFamily: "Consolas, 'Cascadia Mono', 'Courier New', monospace",
+            }}
+          >
+            {terminalLines.slice(0, revealedCount).map((line, index) => (
+              <div key={`${line}-${index}`} className="leading-6">
+                <span className="text-slate-500">&gt;</span>{" "}
+                <span>{line}</span>
               </div>
             ))}
           </div>

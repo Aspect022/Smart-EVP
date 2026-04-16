@@ -1,26 +1,18 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { AlertCircle, CheckCircle2, Loader2, Mic, Square } from "lucide-react"
+import { Loader2, Mic, MicOff, CheckCircle2, AlertCircle } from "lucide-react"
 
 type AudioState = "idle" | "recording" | "processing" | "success" | "error"
 
-interface AmbulanceAudioPanelProps {
-  onTranscriptReceived?: (text: string) => void
-}
-
-export function AmbulanceAudioPanel({ onTranscriptReceived }: AmbulanceAudioPanelProps) {
+export function AmbulanceAudioPanel() {
   const [audioState, setAudioState] = useState<AudioState>("idle")
-  const [errorMessage, setErrorMessage] = useState("")
-  const [recordingTime, setRecordingTime] = useState(0)
-
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const isPointerActiveRef = useRef(false)
 
   const startRecording = async () => {
     try {
-      setErrorMessage("")
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
@@ -38,19 +30,16 @@ export function AmbulanceAudioPanel({ onTranscriptReceived }: AmbulanceAudioPane
 
       mediaRecorder.start()
       setAudioState("recording")
-      setRecordingTime(0)
-      timerRef.current = setInterval(() => setRecordingTime((prev) => prev + 1), 1000)
     } catch (error) {
       console.error("Microphone error:", error)
       setAudioState("error")
-      setErrorMessage("Microphone access was not granted.")
+      window.setTimeout(() => setAudioState("idle"), 2200)
     }
   }
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop()
-      if (timerRef.current) clearInterval(timerRef.current)
       setAudioState("processing")
     }
   }
@@ -65,119 +54,70 @@ export function AmbulanceAudioPanel({ onTranscriptReceived }: AmbulanceAudioPane
       })
       if (!response.ok) throw new Error("Upload failed")
 
-      setTimeout(() => {
-        setAudioState("success")
-        setTimeout(() => setAudioState("idle"), 5000)
-      }, 10000)
+      setAudioState("success")
+      window.setTimeout(() => setAudioState("idle"), 1800)
     } catch (error) {
       console.error(error)
       setAudioState("error")
-      setErrorMessage("The server could not process the recording.")
+      window.setTimeout(() => setAudioState("idle"), 2200)
     }
   }
 
-  const triggerDemoScript = async () => {
-    setAudioState("processing")
-    onTranscriptReceived?.("Initiating demo fallback script...")
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/demo/audio`, { method: "POST" })
-      setTimeout(() => setAudioState("success"), 10000)
-    } catch {
-      setAudioState("error")
-      setErrorMessage("The fallback demo script failed.")
-    }
+  const handlePressStart = () => {
+    if (audioState === "processing" || audioState === "recording" || isPointerActiveRef.current) return
+    isPointerActiveRef.current = true
+    startRecording()
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, "0")}`
+  const handlePressEnd = () => {
+    if (!isPointerActiveRef.current) return
+    isPointerActiveRef.current = false
+    if (audioState === "recording") stopRecording()
+  }
+
+  const icon = () => {
+    if (audioState === "recording") return <MicOff className="h-20 w-20 text-red" />
+    if (audioState === "processing") return <Loader2 className="h-20 w-20 animate-spin text-cyan" />
+    if (audioState === "success") return <CheckCircle2 className="h-20 w-20 text-green" />
+    if (audioState === "error") return <AlertCircle className="h-20 w-20 text-red" />
+    return <Mic className="h-20 w-20 text-cyan" />
   }
 
   return (
-    <div className="w-80 shrink-0 border-l border-border bg-bg p-6">
-      <div className="mb-6">
-        <div className="text-xs font-mono uppercase tracking-[0.18em] text-text-muted">
-          Voice report
-        </div>
-        <h2 className="mt-1 font-sans text-xl font-semibold text-text">Paramedic Audio Intake</h2>
-      </div>
-
-      <div className="rounded-md border border-border bg-bg2 p-5">
-        <div className="min-h-[180px]">
-          {audioState === "idle" && (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <Mic className="mb-4 h-10 w-10 text-text-muted" />
-              <p className="text-sm text-text">Ready for paramedic voice report</p>
-              <p className="mt-2 text-xs font-mono uppercase tracking-[0.18em] text-text-muted">
-                Push to talk when the patient assessment is ready
-              </p>
-            </div>
-          )}
-
-          {audioState === "recording" && (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <Mic className="mb-4 h-10 w-10 text-red" />
-              <p className="text-sm font-semibold text-text">Recording in progress</p>
-              <p className="mt-2 font-mono text-text">{formatTime(recordingTime)}</p>
-            </div>
-          )}
-
-          {audioState === "processing" && (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <Loader2 className="mb-4 h-10 w-10 animate-spin text-cyan" />
-              <p className="text-sm font-semibold text-text">Processing audio</p>
-              <p className="mt-2 text-xs text-text-muted">Transcription and clinical brief generation in progress</p>
-            </div>
-          )}
-
-          {audioState === "success" && (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <CheckCircle2 className="mb-4 h-10 w-10 text-green" />
-              <p className="text-sm font-semibold text-text">Report sent to hospital console</p>
-            </div>
-          )}
-
-          {audioState === "error" && (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <AlertCircle className="mb-4 h-10 w-10 text-red" />
-              <p className="text-sm font-semibold text-text">Audio intake failed</p>
-              <p className="mt-2 text-xs text-text-muted">{errorMessage}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-6 space-y-3">
-          {audioState === "idle" || audioState === "error" || audioState === "success" ? (
-            <button
-              onClick={startRecording}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-sm border border-border bg-bg px-4 py-3 text-xs font-mono uppercase tracking-[0.18em] text-text transition-colors hover:border-border2 hover:bg-bg"
-            >
-              <Mic className="h-4 w-4" />
-              Start Recording
-            </button>
-          ) : audioState === "recording" ? (
-            <button
-              onClick={stopRecording}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-sm border border-red/40 bg-red/10 px-4 py-3 text-xs font-mono uppercase tracking-[0.18em] text-red transition-colors hover:bg-red/15"
-            >
-              <Square className="h-4 w-4" />
-              Stop Recording
-            </button>
-          ) : (
-            <button className="w-full cursor-not-allowed rounded-sm border border-border bg-bg px-4 py-3 text-xs font-mono uppercase tracking-[0.18em] text-text-muted">
-              Processing
-            </button>
-          )}
-
-          {(audioState === "idle" || audioState === "error") && (
-            <button
-              onClick={triggerDemoScript}
-              className="w-full rounded-sm border border-border bg-bg2 px-4 py-3 text-xs font-mono uppercase tracking-[0.18em] text-text-dim transition-colors hover:border-border2 hover:text-text"
-            >
-              Use scripted report
-            </button>
-          )}
+    <div className="w-72 shrink-0 border-l border-border bg-bg p-6">
+      <div className="flex h-full items-center justify-center rounded-md border border-border bg-bg2">
+        <div className="flex flex-col items-center gap-4">
+          <button
+            onPointerDown={handlePressStart}
+            onPointerUp={handlePressEnd}
+            onPointerCancel={handlePressEnd}
+            onPointerLeave={handlePressEnd}
+            onKeyDown={(event) => {
+              if (event.key === " " || event.key === "Enter") handlePressStart()
+            }}
+            onKeyUp={(event) => {
+              if (event.key === " " || event.key === "Enter") handlePressEnd()
+            }}
+            aria-label="Push to talk"
+            className={`relative inline-flex h-52 w-52 items-center justify-center rounded-full border transition-all duration-300 ${
+              audioState === "recording"
+                ? "border-red/40 bg-red/10 shadow-[0_0_40px_rgba(255,59,59,0.28)]"
+                : audioState === "processing"
+                  ? "cursor-wait border-cyan/40 bg-cyan/10 shadow-[0_0_36px_rgba(34,211,238,0.22)]"
+                  : audioState === "success"
+                    ? "border-green/40 bg-green/10 shadow-[0_0_30px_rgba(74,222,128,0.2)]"
+                    : audioState === "error"
+                      ? "border-red/30 bg-red/10"
+                      : "border-cyan/30 bg-cyan/5 shadow-[0_0_30px_rgba(34,211,238,0.16)] hover:shadow-[0_0_42px_rgba(34,211,238,0.26)]"
+            }`}
+            disabled={audioState === "processing"}
+          >
+            {audioState === "recording" && (
+              <span className="absolute inset-0 rounded-full bg-red/20 animate-ping" />
+            )}
+            <span className="relative">{icon()}</span>
+          </button>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">Push-to-Talk</p>
         </div>
       </div>
     </div>
