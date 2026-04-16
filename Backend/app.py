@@ -371,6 +371,8 @@ def trigger_demo_case():
         "location": "Patient Home - Indiranagar, Bengaluru",
         "complaint": "Heart attack patient, chest pain",
         "ambulanceId": "AMB-001",
+        "patientCoords": {"lat": 12.9650, "lng": 77.5938},
+        "hospitalCoords": {"lat": 12.9845, "lng": 77.6070},
         "timestamp": int(time.time() * 1000)
     }
     
@@ -419,6 +421,8 @@ def full_demo_flow():
             "location": "Patient Home - Indiranagar, Bengaluru",
             "complaint": "Heart attack patient, chest pain",
             "ambulanceId": "AMB-001",
+            "patientCoords": {"lat": 12.9650, "lng": 77.5938},
+            "hospitalCoords": {"lat": 12.9845, "lng": 77.6070},
             "timestamp": int(time.time() * 1000)
         }
         mqtt_client.publish("smartevp/dispatch/case", json.dumps(demo_case))

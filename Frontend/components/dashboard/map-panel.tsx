@@ -26,6 +26,8 @@ interface MapPanelProps {
   intersectionCoords: { lat: number; lng: number }
   ambulances?: TrackedAmbulance[]
   selectedAmbulanceId?: string
+  activeCase?: any
+  caseStatus?: string
 }
 
 const DEFAULT_INTERSECTION = { lat: 12.9716, lng: 77.5946 }
@@ -73,6 +75,40 @@ function createSignalPoints(
   }))
 }
 
+function getDestination(activeCase: any, fallback: { lat: number; lng: number }, caseStatus?: string) {
+  const patientCoords = activeCase?.patientCoords
+  const hospitalCoords = activeCase?.hospitalCoords
+  const headingToHospital =
+    caseStatus === "PATIENT_PICKED" ||
+    caseStatus === "EN_ROUTE_HOSPITAL" ||
+    caseStatus === "ARRIVING"
+
+  if (headingToHospital && hospitalCoords?.lat && hospitalCoords?.lng) {
+    return {
+      coords: { lat: Number(hospitalCoords.lat), lng: Number(hospitalCoords.lng) },
+      label: "Hospital",
+      icon: "🏥",
+      showSignals: true,
+    }
+  }
+
+  if (patientCoords?.lat && patientCoords?.lng) {
+    return {
+      coords: { lat: Number(patientCoords.lat), lng: Number(patientCoords.lng) },
+      label: "Patient",
+      icon: "📍",
+      showSignals: false,
+    }
+  }
+
+  return {
+    coords: fallback,
+    label: "Destination",
+    icon: "🏥",
+    showSignals: true,
+  }
+}
+
 function getDistanceMeters(a: { lat: number; lng: number } | null, b: { lat: number; lng: number }) {
   if (!a) return null
   const R = 6371000
@@ -92,15 +128,19 @@ export function MapPanel({
   intersectionCoords = DEFAULT_INTERSECTION,
   ambulances,
   selectedAmbulanceId,
+  activeCase,
+  caseStatus,
 }: MapPanelProps) {
   const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<any>(null)
   const leafletRef = useRef<any>(null)
-  const routeLineRef = useRef<any>(null)
+  const routeTrailRef = useRef<any>(null)
+  const routeGuideRef = useRef<any>(null)
   const preemptionCircleRef = useRef<any>(null)
   const intersectionMarkerRef = useRef<any>(null)
   const ambulanceMarkersRef = useRef<Map<string, any>>(new Map())
   const signalMarkersRef = useRef<any[]>([])
+  const [routePoints, setRoutePoints] = useState<[number, number][]>([])
 
   const trackedAmbulances = useMemo(
     () => resolveAmbulances(gpsData, ambulances),
@@ -108,14 +148,37 @@ export function MapPanel({
   )
   const selectedAmbulance = trackedAmbulances.find((item) => item.id === selectedAmbulanceId) ?? trackedAmbulances[0] ?? null
   const selectedCoords = selectedAmbulance ? { lat: selectedAmbulance.lat, lng: selectedAmbulance.lng } : null
+  const destination = useMemo(
+    () => getDestination(activeCase, intersectionCoords, caseStatus),
+    [activeCase, intersectionCoords, caseStatus],
+  )
   const signalPoints = useMemo(
-    () => createSignalPoints(selectedCoords, intersectionCoords, signalState),
-    [selectedCoords, intersectionCoords, signalState],
+    () => (destination.showSignals ? createSignalPoints(selectedCoords, destination.coords, signalState) : []),
+    [selectedCoords, destination, signalState],
   )
   const distanceToTarget = useMemo(
-    () => getDistanceMeters(selectedCoords, intersectionCoords),
-    [selectedCoords, intersectionCoords],
+    () => getDistanceMeters(selectedCoords, destination.coords),
+    [selectedCoords, destination],
   )
+
+  useEffect(() => {
+    if (!gpsData) return
+
+    setRoutePoints((prev) => {
+      const nextPoint: [number, number] = [gpsData.lat, gpsData.lng]
+      const lastPoint = prev.at(-1)
+      if (lastPoint && lastPoint[0] === nextPoint[0] && lastPoint[1] === nextPoint[1]) {
+        return prev
+      }
+      return [...prev, nextPoint]
+    })
+  }, [gpsData])
+
+  useEffect(() => {
+    if (!activeCase) {
+      setRoutePoints([])
+    }
+  }, [activeCase?.id])
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
@@ -129,7 +192,7 @@ export function MapPanel({
       leafletRef.current = L
 
       const map = L.map(mapRef.current, {
-        center: [intersectionCoords.lat, intersectionCoords.lng],
+        center: [destination.coords.lat, destination.coords.lng],
         zoom: 14,
         zoomControl: true,
       })
@@ -139,7 +202,7 @@ export function MapPanel({
         maxZoom: 19,
       }).addTo(map)
 
-      preemptionCircleRef.current = L.circle([intersectionCoords.lat, intersectionCoords.lng], {
+      preemptionCircleRef.current = L.circle([destination.coords.lat, destination.coords.lng], {
         color: getSignalColor(signalState),
         fillColor: getSignalColor(signalState),
         fillOpacity: signalState === "GREEN" ? 0.08 : 0.04,
@@ -160,21 +223,28 @@ export function MapPanel({
             border: 2px solid rgba(255,255,255,0.9);
             box-shadow: 0 10px 24px rgba(15,23,42,0.28);
             font-size: 20px;
-          ">🏥</div>
+          ">${destination.icon}</div>
         `,
         className: "smartevp-map-icon",
         iconSize: [38, 38],
         iconAnchor: [19, 19],
       })
 
-      intersectionMarkerRef.current = L.marker([intersectionCoords.lat, intersectionCoords.lng], {
+      intersectionMarkerRef.current = L.marker([destination.coords.lat, destination.coords.lng], {
         icon: destinationIcon,
       }).addTo(map)
 
-      routeLineRef.current = L.polyline([], {
+      routeTrailRef.current = L.polyline([], {
         color: "#2563eb",
-        weight: 4,
-        opacity: 0.78,
+        weight: 5,
+        opacity: 0.82,
+      }).addTo(map)
+
+      routeGuideRef.current = L.polyline([], {
+        color: "#1d4ed8",
+        weight: 3,
+        opacity: 0.45,
+        dashArray: "8 8",
       }).addTo(map)
 
       mapInstanceRef.current = map
@@ -193,7 +263,7 @@ export function MapPanel({
         mapInstanceRef.current = null
       }
     }
-  }, [intersectionCoords, signalState])
+  }, [destination, signalState])
 
   useEffect(() => {
     const L = leafletRef.current
@@ -202,14 +272,35 @@ export function MapPanel({
 
     const signalColor = getSignalColor(signalState)
 
-    preemptionCircleRef.current.setLatLng([intersectionCoords.lat, intersectionCoords.lng])
+    preemptionCircleRef.current.setLatLng([destination.coords.lat, destination.coords.lng])
     preemptionCircleRef.current.setStyle({
       color: signalColor,
       fillColor: signalColor,
-      fillOpacity: signalState === "GREEN" ? 0.08 : 0.04,
+      fillOpacity: destination.showSignals ? (signalState === "GREEN" ? 0.1 : 0.05) : 0.02,
     })
 
-    intersectionMarkerRef.current.setLatLng([intersectionCoords.lat, intersectionCoords.lng])
+    const destinationIcon = L.divIcon({
+      html: `
+        <div style="
+          width: 38px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: #2563eb;
+          border: 2px solid rgba(255,255,255,0.9);
+          box-shadow: 0 10px 24px rgba(15,23,42,0.28);
+          font-size: 20px;
+        ">${destination.icon}</div>
+      `,
+      className: "smartevp-map-icon",
+      iconSize: [38, 38],
+      iconAnchor: [19, 19],
+    })
+
+    intersectionMarkerRef.current.setLatLng([destination.coords.lat, destination.coords.lng])
+    intersectionMarkerRef.current.setIcon(destinationIcon)
 
     signalMarkersRef.current.forEach((marker) => marker.remove())
     signalMarkersRef.current = signalPoints.map((signalPoint) => {
@@ -217,32 +308,43 @@ export function MapPanel({
       const signalIcon = L.divIcon({
         html: `
           <div style="
-            width: 14px;
-            height: 14px;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 999px;
-            background: ${color};
-            border: 2px solid white;
+            background: rgba(255,255,255,0.94);
+            border: 3px solid ${color};
             box-shadow: 0 4px 10px rgba(15,23,42,0.22);
-          "></div>
+            color: ${color};
+            font-size: 16px;
+          ">♥</div>
         `,
         className: "smartevp-map-icon",
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
       })
       return L.marker([signalPoint.lat, signalPoint.lng], { icon: signalIcon }).addTo(map)
     })
 
-    if (routeLineRef.current) {
-      routeLineRef.current.setLatLngs(
+    if (routeGuideRef.current) {
+      routeGuideRef.current.setLatLngs(
         selectedCoords
           ? [
               [selectedCoords.lat, selectedCoords.lng],
-              [intersectionCoords.lat, intersectionCoords.lng],
+              [destination.coords.lat, destination.coords.lng],
             ]
           : [],
       )
     }
-  }, [intersectionCoords, selectedCoords, signalPoints, signalState])
+
+    if (routeTrailRef.current) {
+      routeTrailRef.current.setLatLngs(
+        routePoints.map(([lat, lng]) => [lat, lng]),
+      )
+    }
+  }, [destination, selectedCoords, signalPoints, signalState, routePoints])
 
   useEffect(() => {
     const L = leafletRef.current
@@ -299,11 +401,11 @@ export function MapPanel({
 
     const bounds = [
       [selectedCoords.lat, selectedCoords.lng],
-      [intersectionCoords.lat, intersectionCoords.lng],
+      [destination.coords.lat, destination.coords.lng],
     ]
 
     map.fitBounds(bounds, { padding: [48, 48] })
-  }, [intersectionCoords, selectedCoords])
+  }, [destination, selectedCoords])
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-sm border border-border bg-[#dbeafe]">
@@ -372,13 +474,13 @@ export function MapPanel({
               <MapPinned className="h-4 w-4 text-red-600" />
               Destination
             </span>
-            <span className="font-semibold">Hospital Gate</span>
+            <span className="font-semibold">{destination.label}</span>
           </div>
         </div>
       </div>
 
       <div className="absolute bottom-4 left-4 z-[1000] rounded-xl border border-white/70 bg-white/92 px-4 py-3 text-xs text-slate-600 shadow-lg backdrop-blur">
-        Blue route to destination. Colored dots show signal progression. Click a unit in the fleet to follow it.
+        Solid blue line shows the path taken. Dashed line shows the live destination leg. Heart signals arm only on the hospital run.
       </div>
     </div>
   )

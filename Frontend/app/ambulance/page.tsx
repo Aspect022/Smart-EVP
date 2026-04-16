@@ -14,6 +14,7 @@ function AmbulanceConsoleContent() {
     gps,
     signal,
     distance,
+    case: activeCase,
     caseStatus,
     etaSeconds,
   } = useSocket()
@@ -34,6 +35,7 @@ function AmbulanceConsoleContent() {
           connected={connected}
           caseStatus={caseStatus}
           etaSeconds={etaSeconds}
+          activeCase={activeCase}
         />
       </main>
     </div>

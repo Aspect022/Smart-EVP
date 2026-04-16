@@ -11,6 +11,7 @@ interface AdminViewProps {
   signal: "RED" | "AMBER" | "GREEN"
   latency: number | null
   activeCase: any | null
+  caseStatus: string
   medicalBrief: any | null
   transcript: string
   auditLog: any[]
@@ -25,6 +26,7 @@ export function AdminView({
   signal,
   latency,
   activeCase,
+  caseStatus,
   medicalBrief,
   transcript,
   auditLog,
@@ -155,6 +157,8 @@ export function AdminView({
             intersectionCoords={intersectionCoords}
             ambulances={trackedAmbulances}
             selectedAmbulanceId={selectedAmbulanceId}
+            activeCase={activeCase}
+            caseStatus={caseStatus}
           />
 
           <div className="absolute left-4 bottom-4 z-[1000] flex gap-2">

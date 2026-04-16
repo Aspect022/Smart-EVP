@@ -16,6 +16,7 @@ function AdminConsoleContent() {
     signal,
     latency,
     case: activeCase,
+    caseStatus,
     brief: medicalBrief,
     transcript,
     auditLog,
@@ -43,6 +44,7 @@ function AdminConsoleContent() {
           signal={signal}
           latency={latency}
           activeCase={activeCase}
+          caseStatus={caseStatus}
           medicalBrief={medicalBrief}
           transcript={transcript}
           auditLog={auditLog}

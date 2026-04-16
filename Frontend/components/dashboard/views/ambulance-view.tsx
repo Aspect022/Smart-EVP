@@ -16,6 +16,7 @@ interface AmbulanceViewProps {
   connected: boolean
   caseStatus: CaseStatus
   etaSeconds: number | null
+  activeCase: any | null
 }
 
 function formatEta(seconds: number | null) {
@@ -33,6 +34,7 @@ export function AmbulanceView({
   connected,
   caseStatus,
   etaSeconds,
+  activeCase,
 }: AmbulanceViewProps) {
   const updateStatus = async (status: CaseStatus, eta?: number) => {
     try {
@@ -105,6 +107,8 @@ export function AmbulanceView({
             gpsData={gps}
             signalState={signal}
             intersectionCoords={intersectionCoords}
+            activeCase={activeCase}
+            caseStatus={caseStatus}
           />
         </div>
 

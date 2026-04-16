@@ -47,6 +47,21 @@ export function useSocket() {
     setAuditLog((prev) => [{ ts, event, data }, ...prev].slice(0, 100));
   }, []);
 
+  const refreshSnapshot = useCallback(async () => {
+    try {
+      const response = await fetch(`${getBackendUrl()}/api/state`);
+      if (!response.ok) return;
+      const snapshot = await response.json();
+      setState((prev) => ({
+        ...prev,
+        ...snapshot,
+        connected: prev.connected || Boolean(snapshot.connected),
+      }));
+    } catch {
+      // Keep socket as primary path; this is just a resilience fallback.
+    }
+  }, []);
+
   useEffect(() => {
     const socket = getSocket();
     if (!socket) {
@@ -147,6 +162,15 @@ export function useSocket() {
       socket.disconnect();
     };
   }, [addLogEntry]);
+
+  useEffect(() => {
+    void refreshSnapshot();
+    const timer = window.setInterval(() => {
+      void refreshSnapshot();
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [refreshSnapshot]);
 
   // Method to request manual reset via API
   const resetDemo = useCallback(async () => {
