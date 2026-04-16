@@ -32,3 +32,13 @@ export function acceptCase(caseId: string, driverId: string, driverName: string)
     }),
   });
 }
+
+export function registerPushToken(token: string, platform: string) {
+  return requestJson<{ status: string; count: number }>("/api/mobile/push-token", {
+    method: "POST",
+    body: JSON.stringify({
+      token,
+      platform,
+    }),
+  });
+}

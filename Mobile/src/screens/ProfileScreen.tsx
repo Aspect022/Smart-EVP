@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { RootScreenProps } from "../../App";
 import { useDispatchState } from "../context/DispatchContext";
@@ -32,22 +33,21 @@ export function ProfileScreen({ navigation }: RootScreenProps<"Profile">) {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← {t("back")}</Text>
         </Pressable>
 
         <Text style={styles.eyebrow}>{t("profile").toUpperCase()}</Text>
 
-        <View style={styles.avatarWrap}>
+        <View style={styles.heroCard}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{driver.name[0]}</Text>
           </View>
           <Text style={styles.name}>{driver.name}</Text>
-          <Text style={styles.meta}>
-            {driver.vehicle} · {driver.license}
-          </Text>
+          <Text style={styles.meta}>{driver.vehicle}</Text>
+          <Text style={styles.meta}>{driver.license}</Text>
         </View>
 
         <Text style={styles.section}>TODAY</Text>
@@ -58,7 +58,7 @@ export function ProfileScreen({ navigation }: RootScreenProps<"Profile">) {
         </View>
 
         <Text style={styles.section}>LANGUAGE</Text>
-        <View style={styles.languageRow}>
+        <View style={styles.languageCard}>
           {[
             ["English", "en"],
             ["हिंदी", "hi"],
@@ -75,12 +75,14 @@ export function ProfileScreen({ navigation }: RootScreenProps<"Profile">) {
         </View>
 
         <View style={styles.noteCard}>
+          <Text style={styles.noteEyebrow}>NEXT</Text>
+          <Text style={styles.noteTitle}>This section can later hold shift logs, payout records, and vehicle readiness.</Text>
           <Text style={styles.noteText}>
-            Future scope: verified dispatch-hour payouts and shift analytics can live here without changing the
-            driver workflow.
+            For now, keeping it focused makes the app feel more like a real dispatch tool and less like a generated
+            demo template.
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -91,9 +93,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   container: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 28,
   },
   backText: {
     color: colors.textMuted,
@@ -108,20 +110,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 3,
   },
-  avatarWrap: {
+  heroCard: {
     alignItems: "center",
-    marginBottom: 28,
+    padding: 22,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderTopWidth: 3,
+    borderColor: colors.border,
+    borderTopColor: colors.cyan,
+    backgroundColor: colors.card,
+    marginBottom: 24,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(34,211,238,0.14)",
     borderWidth: 2,
     borderColor: "rgba(34,211,238,0.35)",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   avatarText: {
     color: colors.cyan,
@@ -130,8 +139,8 @@ const styles = StyleSheet.create({
   },
   name: {
     color: colors.textPrimary,
-    fontFamily: fonts.display,
-    fontSize: 22,
+    fontFamily: fonts.displayBold,
+    fontSize: 24,
   },
   meta: {
     marginTop: 4,
@@ -173,8 +182,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     textTransform: "uppercase",
   },
-  languageRow: {
+  languageCard: {
     gap: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   languageButton: {
     paddingHorizontal: 14,
@@ -182,7 +196,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.card,
+    backgroundColor: colors.bg2,
   },
   languageButtonActive: {
     borderColor: colors.cyan,
@@ -198,15 +212,29 @@ const styles = StyleSheet.create({
   },
   noteCard: {
     marginTop: 24,
-    padding: 16,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderLeftWidth: 3,
     borderColor: colors.border,
     borderLeftColor: colors.purple,
     backgroundColor: colors.card,
   },
+  noteEyebrow: {
+    color: colors.purple,
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 2,
+  },
+  noteTitle: {
+    marginTop: 8,
+    color: colors.textPrimary,
+    fontFamily: fonts.display,
+    fontSize: 18,
+    lineHeight: 24,
+  },
   noteText: {
+    marginTop: 8,
     color: colors.textDim,
     fontFamily: fonts.mono,
     fontSize: 11,

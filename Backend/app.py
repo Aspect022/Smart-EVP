@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import os
 import threading
 import time
 import paho.mqtt.client as mqtt
@@ -44,6 +43,7 @@ system_state = {
     "driver_status": "AVAILABLE",
     "driver": None,
     "accepted_case_id": None,
+    "expo_push_tokens": [],
 }
 
 # ── MQTT Setup ────────────────────────────────────────────────────────
@@ -204,6 +204,23 @@ def accept_driver_case():
     mqtt_client.publish("smartevp/driver/accepted", json.dumps(accepted_payload), qos=1)
     return jsonify({"status": "accepted", "payload": accepted_payload})
 
+
+@app.route("/api/mobile/push-token", methods=["POST"])
+def register_push_token():
+    data = request.get_json(silent=True) or {}
+    token = data.get("token")
+    platform = data.get("platform", "unknown")
+
+    if not token:
+        return jsonify({"error": "Missing token"}), 400
+
+    tokens = system_state.setdefault("expo_push_tokens", [])
+    if token not in tokens:
+        tokens.append(token)
+        log_event("PUSH_TOKEN_REGISTERED", f"{platform}: {token[:24]}...")
+
+    return jsonify({"status": "registered", "count": len(tokens)})
+
 @app.route("/api/reset", methods=["POST"])
 def reset_state():
     """Reset the demo state"""
@@ -217,6 +234,7 @@ def reset_state():
     system_state["driver_status"] = "AVAILABLE"
     system_state["driver"] = None
     system_state["accepted_case_id"] = None
+    system_state["expo_push_tokens"] = system_state.get("expo_push_tokens", [])
     
     # Notify hardware to reset
     mqtt_client.publish("smartevp/signal/reset", json.dumps({"reason": "api_reset"}))

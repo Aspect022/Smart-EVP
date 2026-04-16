@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { RootScreenProps } from "../../App";
 import { useDispatchState } from "../context/DispatchContext";
@@ -39,6 +40,15 @@ function normalizeBrief(input: Record<string, unknown> | null) {
   };
 }
 
+function DataPill({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.dataPill}>
+      <Text style={styles.dataPillLabel}>{label}</Text>
+      <Text style={styles.dataPillValue}>{value}</Text>
+    </View>
+  );
+}
+
 export function ActiveCaseScreen({ navigation }: RootScreenProps<"ActiveCase">) {
   const { t } = useLanguage();
   const { activeCase, signalState, distanceM, etaSeconds, medicalBrief, transcript, pendingAlertCaseId, driverStatus } =
@@ -59,39 +69,49 @@ export function ActiveCaseScreen({ navigation }: RootScreenProps<"ActiveCase">) 
 
   const brief = useMemo(() => normalizeBrief(medicalBrief as Record<string, unknown> | null), [medicalBrief]);
   const corridorColor = signalState === "GREEN" ? colors.green : signalState === "AMBER" ? colors.amber : colors.red;
+  const corridorLabel =
+    signalState === "GREEN"
+      ? "Green corridor active"
+      : signalState === "AMBER"
+        ? "Preemption threshold approaching"
+        : "Signal path still red";
 
   if (!activeCase) {
     return null;
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>{t("activeCase")}</Text>
-            <Text style={styles.headerSubtitle}>
-              Case #{activeCase.id} · {activeCase.location}
-            </Text>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroCard}>
+          <View style={styles.heroHeader}>
+            <View>
+              <Text style={styles.heroEyebrow}>ACTIVE RESPONSE</Text>
+              <Text style={styles.heroTitle}>Case #{activeCase.id}</Text>
+              <Text style={styles.heroLocation}>{activeCase.location}</Text>
+            </View>
+            <View style={styles.etaWrap}>
+              <Text style={styles.etaLabel}>ETA</Text>
+              <Text style={styles.etaValue}>{formatEta(etaSeconds)}</Text>
+            </View>
           </View>
-          <Text style={styles.eta}>{formatEta(etaSeconds)}</Text>
-        </View>
 
-        <View style={[styles.corridorCard, { borderTopColor: corridorColor }]}>
-          <View style={[styles.corridorDot, { backgroundColor: corridorColor }, signalState === "GREEN" && shadows.greenGlow]} />
-          <View style={styles.corridorBody}>
-            <Text style={[styles.corridorTitle, { color: corridorColor }]}>{t("signal")}</Text>
-            <Text style={styles.corridorSubtitle}>
-              {signalState === "GREEN"
-                ? "GREEN CORRIDOR ACTIVE — proceed without stopping"
-                : signalState === "AMBER"
-                  ? "Approaching corridor threshold"
-                  : "Signal sequence still red"}
-            </Text>
+          <View style={[styles.corridorBand, { borderColor: corridorColor }]}>
+            <View style={[styles.corridorDot, { backgroundColor: corridorColor }, signalState === "GREEN" && shadows.greenGlow]} />
+            <View style={styles.corridorBody}>
+              <Text style={[styles.corridorTitle, { color: corridorColor }]}>{corridorLabel}</Text>
+              <Text style={styles.corridorSubtitle}>
+                {signalState === "GREEN"
+                  ? "Proceed through the intersection without holding at red."
+                  : "Stay on route. The backend is still tracking signal status and ambulance distance."}
+              </Text>
+            </View>
           </View>
-          <View style={styles.distanceWrap}>
-            <Text style={styles.distanceValue}>{distanceM != null ? `${distanceM}m` : "--"}</Text>
-            <Text style={styles.distanceLabel}>DIST</Text>
+
+          <View style={styles.dataRow}>
+            <DataPill label="SEVERITY" value={activeCase.severity} />
+            <DataPill label="DISTANCE" value={distanceM != null ? `${distanceM}m` : "--"} />
+            <DataPill label="ROUTE" value={activeCase.ambulanceId ?? "AMB-001"} />
           </View>
         </View>
 
@@ -110,82 +130,82 @@ export function ActiveCaseScreen({ navigation }: RootScreenProps<"ActiveCase">) 
           ))}
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {tab === "overview" ? (
-            <View style={styles.panel}>
-              <View style={styles.block}>
-                <Text style={styles.blockLabel}>Severity</Text>
-                <Text style={styles.blockValue}>{activeCase.severity}</Text>
-              </View>
-              <View style={styles.block}>
-                <Text style={styles.blockLabel}>Complaint</Text>
-                <Text style={styles.body}>{activeCase.complaint}</Text>
-              </View>
-              <View style={styles.block}>
-                <Text style={styles.blockLabel}>Transcript Feed</Text>
-                <Text style={styles.body}>{transcript || "Awaiting paramedic transcript..."}</Text>
-              </View>
+        {tab === "overview" ? (
+          <View style={styles.panel}>
+            <View style={styles.block}>
+              <Text style={styles.blockLabel}>Dispatch Summary</Text>
+              <Text style={styles.blockValue}>{activeCase.complaint}</Text>
+              <Text style={styles.blockBody}>
+                The phone is now in live case mode. This view should stay open while the ambulance is en route so the
+                driver always has the corridor state and patient context in one place.
+              </Text>
             </View>
-          ) : (
-            <View style={styles.panel}>
-              {brief ? (
-                <>
-                  <View style={styles.block}>
-                    <Text style={styles.blockLabel}>Suspected Diagnosis</Text>
-                    <Text style={[styles.blockValue, { color: colors.amber }]}>{String(brief.suspectedDiagnosis)}</Text>
-                  </View>
-                  <View style={styles.block}>
-                    <Text style={styles.blockLabel}>Chief Complaint</Text>
-                    <Text style={styles.body}>{String(brief.chiefComplaint)}</Text>
-                  </View>
-                  <View style={styles.vitalsGrid}>
-                    {[
-                      ["BP", (brief.vitals as Record<string, unknown>).bp],
-                      ["HR", (brief.vitals as Record<string, unknown>).hr],
-                      ["SpO2", (brief.vitals as Record<string, unknown>).spo2],
-                      ["GCS", (brief.vitals as Record<string, unknown>).gcs],
-                    ].map(([label, value]) => (
-                      <View key={label} style={styles.vitalCard}>
-                        <Text style={styles.vitalLabel}>{label}</Text>
-                        <Text style={styles.vitalValue}>{value ? String(value) : "--"}</Text>
+
+            <View style={styles.block}>
+              <Text style={styles.blockLabel}>Transcript Feed</Text>
+              <Text style={styles.blockBody}>{transcript || "Waiting for the paramedic transcript to arrive..."}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.panel}>
+            {brief ? (
+              <>
+                <View style={styles.block}>
+                  <Text style={styles.blockLabel}>Suspected Diagnosis</Text>
+                  <Text style={[styles.blockValue, { color: colors.amber }]}>{String(brief.suspectedDiagnosis)}</Text>
+                  <Text style={styles.blockBody}>{String(brief.chiefComplaint)}</Text>
+                </View>
+
+                <View style={styles.vitalsGrid}>
+                  {([
+                    ["BP", (brief.vitals as Record<string, unknown>).bp],
+                    ["HR", (brief.vitals as Record<string, unknown>).hr],
+                    ["SpO2", (brief.vitals as Record<string, unknown>).spo2],
+                    ["GCS", (brief.vitals as Record<string, unknown>).gcs],
+                  ] as Array<[string, unknown]>).map(([label, value]) => (
+                    <View key={label} style={styles.vitalCard}>
+                      <Text style={styles.vitalLabel}>{label}</Text>
+                      <Text style={styles.vitalValue}>{value ? String(value) : "--"}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.block}>
+                  <Text style={styles.blockLabel}>Prepare on Arrival</Text>
+                  <View style={styles.resourcesWrap}>
+                    {(brief.resources as unknown[]).map((resource, index) => (
+                      <View key={`${String(resource)}-${index}`} style={styles.resourceBadge}>
+                        <Text style={styles.resourceText}>{String(resource)}</Text>
                       </View>
                     ))}
                   </View>
-                  <View style={styles.block}>
-                    <Text style={styles.blockLabel}>Resources</Text>
-                    <View style={styles.resourcesWrap}>
-                      {(brief.resources as unknown[]).map((resource) => (
-                        <View key={String(resource)} style={styles.resourceBadge}>
-                          <Text style={styles.resourceText}>{String(resource)}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                  <View style={styles.block}>
-                    <Text style={styles.blockLabel}>Allergies / Medications</Text>
-                    <Text style={styles.body}>
-                      Allergies: {String(brief.allergies)}
-                      {"\n"}
-                      Medications:{" "}
-                      {Array.isArray(brief.medications)
-                        ? (brief.medications as unknown[]).map(String).join(", ")
-                        : String(brief.medications)}
-                    </Text>
-                  </View>
-                  <View style={styles.aiBadge}>
-                    <Text style={styles.aiText}>AI GENERATED · Gemma medical brief</Text>
-                  </View>
-                </>
-              ) : (
-                <View style={styles.block}>
-                  <Text style={styles.blockLabel}>Transcript Feed</Text>
-                  <Text style={styles.body}>{transcript || "Waiting for the medical brief pipeline..."}</Text>
                 </View>
-              )}
+
+                <View style={styles.block}>
+                  <Text style={styles.blockLabel}>Medication / Allergy Context</Text>
+                  <Text style={styles.blockBody}>
+                    Allergies: {String(brief.allergies)}
+                    {"\n"}
+                    Medications:{" "}
+                    {Array.isArray(brief.medications)
+                      ? (brief.medications as unknown[]).map(String).join(", ")
+                      : String(brief.medications)}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.block}>
+                <Text style={styles.blockLabel}>Brief Pipeline</Text>
+                <Text style={styles.blockBody}>{transcript || "Medical brief has not arrived yet. Transcript will appear here first."}</Text>
+              </View>
+            )}
+
+            <View style={styles.aiBadge}>
+              <Text style={styles.aiText}>LIVE AI BRIEF · GEMMA MEDICAL SUMMARY</Text>
             </View>
-          )}
-        </ScrollView>
-      </View>
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -196,82 +216,121 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   container: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 10,
+    paddingBottom: 28,
   },
-  header: {
+  heroCard: {
+    padding: 20,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderTopWidth: 3,
+    borderColor: colors.border,
+    borderTopColor: colors.cyan,
+    backgroundColor: colors.card,
+  },
+  heroHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 16,
+    gap: 12,
   },
-  headerTitle: {
+  heroEyebrow: {
+    color: colors.cyan,
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 2.5,
+  },
+  heroTitle: {
+    marginTop: 8,
     color: colors.textPrimary,
-    fontFamily: fonts.display,
-    fontSize: 18,
+    fontFamily: fonts.displayBold,
+    fontSize: 28,
   },
-  headerSubtitle: {
+  heroLocation: {
     marginTop: 4,
+    color: colors.textDim,
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    lineHeight: 18,
+    maxWidth: 220,
+  },
+  etaWrap: {
+    alignItems: "flex-end",
+  },
+  etaLabel: {
     color: colors.textMuted,
     fontFamily: fonts.mono,
-    fontSize: 11,
+    fontSize: 10,
+    letterSpacing: 2,
   },
-  eta: {
+  etaValue: {
+    marginTop: 6,
     color: colors.textPrimary,
     fontFamily: fonts.displayBold,
     fontSize: 34,
   },
-  corridorCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
+  corridorBand: {
+    marginTop: 18,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
-    borderTopWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    marginBottom: 16,
+    backgroundColor: colors.bg2,
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start",
   },
   corridorDot: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginTop: 4,
   },
   corridorBody: {
     flex: 1,
   },
   corridorTitle: {
     fontFamily: fonts.displayBold,
-    fontSize: 15,
+    fontSize: 18,
   },
   corridorSubtitle: {
-    marginTop: 4,
-    color: colors.textMuted,
+    marginTop: 6,
+    color: colors.textDim,
     fontFamily: fonts.mono,
     fontSize: 11,
-    lineHeight: 17,
+    lineHeight: 18,
   },
-  distanceWrap: {
-    alignItems: "flex-end",
+  dataRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
   },
-  distanceValue: {
-    color: colors.textPrimary,
-    fontFamily: fonts.displayBold,
-    fontSize: 20,
+  dataPill: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "rgba(255,255,255,0.02)",
   },
-  distanceLabel: {
+  dataPillLabel: {
     color: colors.textMuted,
     fontFamily: fonts.mono,
-    fontSize: 10,
-    letterSpacing: 2,
+    fontSize: 9,
+    letterSpacing: 1.4,
+  },
+  dataPillValue: {
+    marginTop: 7,
+    color: colors.textPrimary,
+    fontFamily: fonts.display,
+    fontSize: 14,
   },
   tabBar: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    marginBottom: 12,
+    marginTop: 18,
+    marginBottom: 14,
   },
   tabButton: {
     flex: 1,
@@ -287,21 +346,18 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: fonts.mono,
     fontSize: 10,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   tabTextActive: {
     color: colors.textPrimary,
-  },
-  scrollContent: {
-    paddingBottom: 28,
   },
   panel: {
     gap: 14,
   },
   block: {
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
@@ -318,8 +374,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: fonts.displayBold,
     fontSize: 20,
+    lineHeight: 26,
   },
-  body: {
+  blockBody: {
+    marginTop: 8,
     color: colors.textDim,
     fontFamily: fonts.mono,
     fontSize: 12,
@@ -333,7 +391,7 @@ const styles = StyleSheet.create({
   vitalCard: {
     width: "47%",
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.bg2,
@@ -371,7 +429,7 @@ const styles = StyleSheet.create({
   },
   aiBadge: {
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(167,139,250,0.25)",
     backgroundColor: "rgba(167,139,250,0.08)",
@@ -384,4 +442,3 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 });
-

@@ -1,6 +1,9 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { acceptCase, getMobileState } from "../api";
+import { Platform } from "react-native";
+
+import { acceptCase, getMobileState, registerPushToken } from "../api";
+import { registerForPushNotificationsAsync, sendLocalDispatchNotification } from "../notifications";
 import { ActiveCase, DriverProfile, MedicalBrief } from "../types";
 
 type DispatchContextValue = {
@@ -51,6 +54,7 @@ export function DispatchProvider({ children }: PropsWithChildren) {
   const [accepting, setAccepting] = useState(false);
 
   const seenAlertCaseIdRef = useRef<string | null>(null);
+  const notifiedCaseIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -91,6 +95,38 @@ export function DispatchProvider({ children }: PropsWithChildren) {
 
     return () => clearInterval(timer);
   }, [refresh]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function setupNotifications() {
+      const token = await registerForPushNotificationsAsync();
+      if (!active || !token) {
+        return;
+      }
+
+      try {
+        await registerPushToken(token, Platform.OS);
+      } catch {
+        // Token registration failing should not block dispatch UX.
+      }
+    }
+
+    void setupNotifications();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeCase?.id || pendingAlertCaseId !== activeCase.id || notifiedCaseIdRef.current === activeCase.id) {
+      return;
+    }
+
+    notifiedCaseIdRef.current = activeCase.id;
+    void sendLocalDispatchNotification(activeCase.id, activeCase.severity, activeCase.location);
+  }, [activeCase, pendingAlertCaseId]);
 
   const acceptCurrentCase = useCallback(
     async (driver: DriverProfile) => {
