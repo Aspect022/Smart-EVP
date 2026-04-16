@@ -1,28 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import dynamic from "next/dynamic"
-
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.MapContainer),
-  { ssr: false },
-)
-const TileLayer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.TileLayer),
-  { ssr: false },
-)
-const Marker = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Marker),
-  { ssr: false },
-)
-const Circle = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Circle),
-  { ssr: false },
-)
-const Polyline = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Polyline),
-  { ssr: false },
-)
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Activity, LocateFixed, MapPinned } from "lucide-react"
 
 interface GPSData {
   lat: number
@@ -49,69 +28,13 @@ interface MapPanelProps {
   selectedAmbulanceId?: string
 }
 
-declare global {
-  interface Window {
-    google?: any
-  }
-}
-
-const DEFAULT_INTERSECTION = { lat: 12.7186, lng: 77.4944 }
+const DEFAULT_INTERSECTION = { lat: 12.9716, lng: 77.5946 }
 const PREEMPTION_RADIUS = 500
-const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
-const AMBULANCE_EMOJI = "\uD83D\uDE91"
-
-let googleMapsPromise: Promise<void> | null = null
-
-function loadGoogleMaps(apiKey: string) {
-  if (typeof window === "undefined") return Promise.resolve()
-  if (window.google?.maps) return Promise.resolve()
-  if (googleMapsPromise) return googleMapsPromise
-
-  googleMapsPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('script[data-google-maps="true"]')
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true })
-      existing.addEventListener("error", () => reject(new Error("Google Maps failed to load")), { once: true })
-      return
-    }
-
-    const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly`
-    script.async = true
-    script.defer = true
-    script.dataset.googleMaps = "true"
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error("Google Maps failed to load"))
-    document.head.appendChild(script)
-  })
-
-  return googleMapsPromise
-}
 
 function getSignalColor(signalState: "RED" | "AMBER" | "GREEN") {
   if (signalState === "GREEN") return "#4ade80"
   if (signalState === "AMBER") return "#f59e0b"
   return "#22d3ee"
-}
-
-function getAmbulanceSvg(selected = false, isLive = false) {
-  const fill = selected ? "#ff5a36" : isLive ? "#ff3b3b" : "#d946ef"
-  const ring = selected ? "#ffe7c2" : "#ffffff"
-
-  return encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56">
-      <defs>
-        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000814" flood-opacity="0.45"/>
-        </filter>
-      </defs>
-      <g filter="url(#shadow)">
-        <circle cx="28" cy="28" r="22" fill="${fill}"/>
-        <circle cx="28" cy="28" r="20" fill="${fill}" stroke="${ring}" stroke-width="2"/>
-        <text x="28" y="36" text-anchor="middle" font-size="24">${AMBULANCE_EMOJI}</text>
-      </g>
-    </svg>
-  `)
 }
 
 function resolveAmbulances(gpsData: GPSData | null, ambulances?: TrackedAmbulance[]) {
@@ -124,9 +47,43 @@ function resolveAmbulances(gpsData: GPSData | null, ambulances?: TrackedAmbulanc
     lat: gpsData.lat,
     lng: gpsData.lng,
     speed: gpsData.speed,
-    status: "Live",
+    status: "Live route feed",
     isLive: true,
   }]
+}
+
+function createSignalPoints(
+  start: { lat: number; lng: number } | null,
+  end: { lat: number; lng: number },
+  signalState: "RED" | "AMBER" | "GREEN",
+) {
+  if (!start) return []
+
+  const statuses: Array<"RED" | "AMBER" | "GREEN"> =
+    signalState === "GREEN"
+      ? ["GREEN", "GREEN", "GREEN"]
+      : signalState === "AMBER"
+        ? ["AMBER", "AMBER", "GREEN"]
+        : ["RED", "AMBER", "GREEN"]
+
+  return [0.25, 0.5, 0.75].map((fraction, index) => ({
+    lat: start.lat + (end.lat - start.lat) * fraction,
+    lng: start.lng + (end.lng - start.lng) * fraction,
+    state: statuses[index],
+  }))
+}
+
+function getDistanceMeters(a: { lat: number; lng: number } | null, b: { lat: number; lng: number }) {
+  if (!a) return null
+  const R = 6371000
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)))
 }
 
 export function MapPanel({
@@ -136,404 +93,293 @@ export function MapPanel({
   ambulances,
   selectedAmbulanceId,
 }: MapPanelProps) {
-  const [routePoints, setRoutePoints] = useState<[number, number][]>([])
-  const [isClient, setIsClient] = useState(false)
-  const [googleStatus, setGoogleStatus] = useState<"idle" | "ready" | "error">(
-    GOOGLE_MAPS_KEY ? "idle" : "error",
+  const mapRef = useRef<HTMLDivElement | null>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const leafletRef = useRef<any>(null)
+  const routeLineRef = useRef<any>(null)
+  const preemptionCircleRef = useRef<any>(null)
+  const intersectionMarkerRef = useRef<any>(null)
+  const ambulanceMarkersRef = useRef<Map<string, any>>(new Map())
+  const signalMarkersRef = useRef<any[]>([])
+
+  const trackedAmbulances = useMemo(
+    () => resolveAmbulances(gpsData, ambulances),
+    [gpsData, ambulances],
   )
-  const trackedAmbulances = resolveAmbulances(gpsData, ambulances)
+  const selectedAmbulance = trackedAmbulances.find((item) => item.id === selectedAmbulanceId) ?? trackedAmbulances[0] ?? null
+  const selectedCoords = selectedAmbulance ? { lat: selectedAmbulance.lat, lng: selectedAmbulance.lng } : null
+  const signalPoints = useMemo(
+    () => createSignalPoints(selectedCoords, intersectionCoords, signalState),
+    [selectedCoords, intersectionCoords, signalState],
+  )
+  const distanceToTarget = useMemo(
+    () => getDistanceMeters(selectedCoords, intersectionCoords),
+    [selectedCoords, intersectionCoords],
+  )
 
   useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  useEffect(() => {
-    if (!gpsData) return
-
-    setRoutePoints((prev) => {
-      const nextPoint: [number, number] = [gpsData.lat, gpsData.lng]
-      const lastPoint = prev.at(-1)
-      if (lastPoint && lastPoint[0] === nextPoint[0] && lastPoint[1] === nextPoint[1]) {
-        return prev
-      }
-      return [...prev, nextPoint]
-    })
-  }, [gpsData])
-
-  useEffect(() => {
-    if (!isClient || !GOOGLE_MAPS_KEY) return
+    if (!mapRef.current || mapInstanceRef.current) return
 
     let cancelled = false
-    loadGoogleMaps(GOOGLE_MAPS_KEY)
-      .then(() => {
-        if (!cancelled) setGoogleStatus("ready")
+
+    const loadLeaflet = async () => {
+      const L = (await import("leaflet")).default
+      if (cancelled || !mapRef.current) return
+
+      leafletRef.current = L
+
+      const map = L.map(mapRef.current, {
+        center: [intersectionCoords.lat, intersectionCoords.lng],
+        zoom: 14,
+        zoomControl: true,
       })
-      .catch((error) => {
-        console.error("Google Maps loader failed", error)
-        if (!cancelled) setGoogleStatus("error")
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map)
+
+      preemptionCircleRef.current = L.circle([intersectionCoords.lat, intersectionCoords.lng], {
+        color: getSignalColor(signalState),
+        fillColor: getSignalColor(signalState),
+        fillOpacity: signalState === "GREEN" ? 0.08 : 0.04,
+        radius: PREEMPTION_RADIUS,
+        weight: 2,
+      }).addTo(map)
+
+      const destinationIcon = L.divIcon({
+        html: `
+          <div style="
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: #2563eb;
+            border: 2px solid rgba(255,255,255,0.9);
+            box-shadow: 0 10px 24px rgba(15,23,42,0.28);
+            font-size: 20px;
+          ">🏥</div>
+        `,
+        className: "smartevp-map-icon",
+        iconSize: [38, 38],
+        iconAnchor: [19, 19],
       })
+
+      intersectionMarkerRef.current = L.marker([intersectionCoords.lat, intersectionCoords.lng], {
+        icon: destinationIcon,
+      }).addTo(map)
+
+      routeLineRef.current = L.polyline([], {
+        color: "#2563eb",
+        weight: 4,
+        opacity: 0.78,
+      }).addTo(map)
+
+      mapInstanceRef.current = map
+    }
+
+    loadLeaflet()
 
     return () => {
       cancelled = true
+      signalMarkersRef.current.forEach((marker) => marker.remove())
+      signalMarkersRef.current = []
+      ambulanceMarkersRef.current.forEach((marker) => marker.remove())
+      ambulanceMarkersRef.current.clear()
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
     }
-  }, [isClient])
-
-  if (!isClient) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-bg2">
-        <div className="font-mono text-sm text-text-muted">Loading map...</div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="relative h-full w-full">
-      {googleStatus === "ready" ? (
-        <GoogleMapCanvas
-          routePoints={routePoints}
-          signalState={signalState}
-          intersectionCoords={intersectionCoords}
-          ambulances={trackedAmbulances}
-          selectedAmbulanceId={selectedAmbulanceId}
-        />
-      ) : (
-        <LeafletMapCanvas
-          routePoints={routePoints}
-          signalState={signalState}
-          intersectionCoords={intersectionCoords}
-          ambulances={trackedAmbulances}
-          selectedAmbulanceId={selectedAmbulanceId}
-        />
-      )}
-    </div>
-  )
-}
-
-function GoogleMapCanvas({
-  routePoints,
-  signalState,
-  intersectionCoords,
-  ambulances,
-  selectedAmbulanceId,
-}: {
-  routePoints: [number, number][]
-  signalState: "RED" | "AMBER" | "GREEN"
-  intersectionCoords: { lat: number; lng: number }
-  ambulances: TrackedAmbulance[]
-  selectedAmbulanceId?: string
-}) {
-  const mapElementRef = useRef<HTMLDivElement | null>(null)
-  const mapRef = useRef<any>(null)
-  const circleRef = useRef<any>(null)
-  const intersectionMarkerRef = useRef<any>(null)
-  const polylineRef = useRef<any>(null)
-  const ambulanceMarkersRef = useRef<Map<string, any>>(new Map())
-  const selectedAmbulance = ambulances.find((item) => item.id === selectedAmbulanceId) ?? ambulances[0] ?? null
-
-  useEffect(() => {
-    if (!mapElementRef.current || !window.google?.maps || mapRef.current) return
-
-    const google = window.google
-    const signalColor = getSignalColor(signalState)
-
-    mapRef.current = new google.maps.Map(mapElementRef.current, {
-      center: selectedAmbulance
-        ? { lat: selectedAmbulance.lat, lng: selectedAmbulance.lng }
-        : intersectionCoords,
-      zoom: 15,
-      disableDefaultUI: true,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      gestureHandling: "greedy",
-      styles: [
-        { elementType: "geometry", stylers: [{ color: "#0b1020" }] },
-        { elementType: "labels.text.fill", stylers: [{ color: "#9ba4b5" }] },
-        { elementType: "labels.text.stroke", stylers: [{ color: "#0b1020" }] },
-        { featureType: "road", elementType: "geometry", stylers: [{ color: "#172033" }] },
-        { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#1b2940" }] },
-        { featureType: "poi", stylers: [{ visibility: "off" }] },
-        { featureType: "transit", stylers: [{ visibility: "off" }] },
-        { featureType: "water", elementType: "geometry", stylers: [{ color: "#08101d" }] },
-      ],
-    })
-
-    circleRef.current = new google.maps.Circle({
-      map: mapRef.current,
-      center: intersectionCoords,
-      radius: PREEMPTION_RADIUS,
-      strokeColor: signalColor,
-      strokeOpacity: 0.85,
-      strokeWeight: 2,
-      fillColor: signalColor,
-      fillOpacity: signalState === "GREEN" ? 0.08 : 0.03,
-    })
-
-    intersectionMarkerRef.current = new google.maps.Marker({
-      map: mapRef.current,
-      position: intersectionCoords,
-      title: "Intersection",
-      label: {
-        text: "+",
-        color: "#f8fafc",
-        fontWeight: "700",
-      },
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 12,
-        fillColor: signalColor,
-        fillOpacity: 0.95,
-        strokeColor: "#f8fafc",
-        strokeWeight: 2,
-      },
-    })
-
-    polylineRef.current = new google.maps.Polyline({
-      map: mapRef.current,
-      geodesic: true,
-      strokeColor: "#ff3b3b",
-      strokeOpacity: 0.72,
-      strokeWeight: 3,
-    })
-  }, [intersectionCoords, selectedAmbulance, signalState])
-
-  useEffect(() => {
-    if (!window.google?.maps || !mapRef.current || !circleRef.current || !intersectionMarkerRef.current) return
-
-    const google = window.google
-    const signalColor = getSignalColor(signalState)
-
-    circleRef.current.setOptions({
-      center: intersectionCoords,
-      strokeColor: signalColor,
-      fillColor: signalColor,
-      fillOpacity: signalState === "GREEN" ? 0.08 : 0.03,
-    })
-
-    intersectionMarkerRef.current.setPosition(intersectionCoords)
-    intersectionMarkerRef.current.setIcon({
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 12,
-      fillColor: signalColor,
-      fillOpacity: 0.95,
-      strokeColor: "#f8fafc",
-      strokeWeight: 2,
-    })
   }, [intersectionCoords, signalState])
 
   useEffect(() => {
-    if (!window.google?.maps || !polylineRef.current) return
+    const L = leafletRef.current
+    const map = mapInstanceRef.current
+    if (!L || !map || !preemptionCircleRef.current || !intersectionMarkerRef.current) return
 
-    polylineRef.current.setPath(routePoints.map(([lat, lng]) => ({ lat, lng })))
-  }, [routePoints])
+    const signalColor = getSignalColor(signalState)
+
+    preemptionCircleRef.current.setLatLng([intersectionCoords.lat, intersectionCoords.lng])
+    preemptionCircleRef.current.setStyle({
+      color: signalColor,
+      fillColor: signalColor,
+      fillOpacity: signalState === "GREEN" ? 0.08 : 0.04,
+    })
+
+    intersectionMarkerRef.current.setLatLng([intersectionCoords.lat, intersectionCoords.lng])
+
+    signalMarkersRef.current.forEach((marker) => marker.remove())
+    signalMarkersRef.current = signalPoints.map((signalPoint) => {
+      const color = getSignalColor(signalPoint.state)
+      const signalIcon = L.divIcon({
+        html: `
+          <div style="
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            background: ${color};
+            border: 2px solid white;
+            box-shadow: 0 4px 10px rgba(15,23,42,0.22);
+          "></div>
+        `,
+        className: "smartevp-map-icon",
+        iconSize: [14, 14],
+        iconAnchor: [7, 7],
+      })
+      return L.marker([signalPoint.lat, signalPoint.lng], { icon: signalIcon }).addTo(map)
+    })
+
+    if (routeLineRef.current) {
+      routeLineRef.current.setLatLngs(
+        selectedCoords
+          ? [
+              [selectedCoords.lat, selectedCoords.lng],
+              [intersectionCoords.lat, intersectionCoords.lng],
+            ]
+          : [],
+      )
+    }
+  }, [intersectionCoords, selectedCoords, signalPoints, signalState])
 
   useEffect(() => {
-    if (!window.google?.maps || !mapRef.current) return
+    const L = leafletRef.current
+    const map = mapInstanceRef.current
+    if (!L || !map) return
 
-    const google = window.google
-    const nextIds = new Set(ambulances.map((ambulance) => ambulance.id))
+    const nextIds = new Set(trackedAmbulances.map((ambulance) => ambulance.id))
 
     ambulanceMarkersRef.current.forEach((marker, id) => {
       if (!nextIds.has(id)) {
-        marker.setMap(null)
+        marker.remove()
         ambulanceMarkersRef.current.delete(id)
       }
     })
 
-    ambulances.forEach((ambulance) => {
-      const isSelected = ambulance.id === selectedAmbulanceId
-      const icon = {
-        url: `data:image/svg+xml;charset=UTF-8,${getAmbulanceSvg(isSelected, ambulance.isLive)}`,
-        scaledSize: new google.maps.Size(isSelected ? 48 : 40, isSelected ? 48 : 40),
-        anchor: new google.maps.Point(isSelected ? 24 : 20, isSelected ? 24 : 20),
-      }
-      const position = { lat: ambulance.lat, lng: ambulance.lng }
-      const existing = ambulanceMarkersRef.current.get(ambulance.id)
+    trackedAmbulances.forEach((ambulance) => {
+      const selected = ambulance.id === selectedAmbulanceId
+      const bg = selected ? "#ff5a36" : ambulance.isLive ? "#dc2626" : "#7c3aed"
+      const markerIcon = L.divIcon({
+        html: `
+          <div style="
+            width: ${selected ? 46 : 38}px;
+            height: ${selected ? 46 : 38}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: ${bg};
+            border: 2px solid rgba(255,255,255,0.92);
+            box-shadow: 0 10px 24px rgba(15,23,42,0.30);
+            font-size: ${selected ? 24 : 20}px;
+            line-height: 1;
+          ">🚑</div>
+        `,
+        className: "smartevp-map-icon",
+        iconSize: [selected ? 46 : 38, selected ? 46 : 38],
+        iconAnchor: [selected ? 23 : 19, selected ? 23 : 19],
+      })
 
+      const existing = ambulanceMarkersRef.current.get(ambulance.id)
       if (existing) {
-        existing.setPosition(position)
-        existing.setTitle(`${ambulance.id} • ${ambulance.status}`)
-        existing.setIcon(icon)
-        existing.setZIndex(isSelected ? 1000 : ambulance.isLive ? 900 : 700)
+        existing.setLatLng([ambulance.lat, ambulance.lng])
+        existing.setIcon(markerIcon)
       } else {
-        const marker = new google.maps.Marker({
-          map: mapRef.current,
-          position,
-          title: `${ambulance.id} • ${ambulance.status}`,
-          zIndex: isSelected ? 1000 : ambulance.isLive ? 900 : 700,
-          icon,
-        })
+        const marker = L.marker([ambulance.lat, ambulance.lng], { icon: markerIcon }).addTo(map)
         ambulanceMarkersRef.current.set(ambulance.id, marker)
       }
     })
-  }, [ambulances, selectedAmbulanceId])
+  }, [selectedAmbulanceId, trackedAmbulances])
 
   useEffect(() => {
-    if (!mapRef.current || !selectedAmbulance) return
-    mapRef.current.panTo({ lat: selectedAmbulance.lat, lng: selectedAmbulance.lng })
-  }, [selectedAmbulance])
+    const map = mapInstanceRef.current
+    if (!map || !selectedCoords) return
 
-  return <div ref={mapElementRef} className="h-full w-full bg-[#080b12]" />
-}
+    const bounds = [
+      [selectedCoords.lat, selectedCoords.lng],
+      [intersectionCoords.lat, intersectionCoords.lng],
+    ]
 
-function LeafletMapCanvas({
-  routePoints,
-  signalState,
-  intersectionCoords,
-  ambulances,
-  selectedAmbulanceId,
-}: {
-  routePoints: [number, number][]
-  signalState: "RED" | "AMBER" | "GREEN"
-  intersectionCoords: { lat: number; lng: number }
-  ambulances: TrackedAmbulance[]
-  selectedAmbulanceId?: string
-}) {
-  const mapRef = useRef<L.Map | null>(null)
-  const selectedAmbulance = ambulances.find((item) => item.id === selectedAmbulanceId) ?? ambulances[0] ?? null
-
-  useEffect(() => {
-    if (!mapRef.current || !selectedAmbulance) return
-    mapRef.current.panTo([selectedAmbulance.lat, selectedAmbulance.lng], { animate: true, duration: 0.75 })
-  }, [selectedAmbulance])
+    map.fitBounds(bounds, { padding: [48, 48] })
+  }, [intersectionCoords, selectedCoords])
 
   return (
-    <MapContainer
-      center={[intersectionCoords.lat, intersectionCoords.lng]}
-      zoom={15}
-      className="h-full w-full"
-      style={{ background: "#080b12" }}
-      ref={(map) => {
-        if (map) mapRef.current = map
-      }}
-    >
-      <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-      />
+    <div className="relative h-full w-full overflow-hidden rounded-sm border border-border bg-[#dbeafe]">
+      <div ref={mapRef} className="h-full w-full" />
 
-      <Circle
-        center={[intersectionCoords.lat, intersectionCoords.lng]}
-        radius={PREEMPTION_RADIUS}
-        pathOptions={{
-          color: getSignalColor(signalState),
-          fillColor: getSignalColor(signalState),
-          fillOpacity: signalState === "GREEN" ? 0.08 : 0.03,
-          weight: 2,
-        }}
-      />
+      {selectedAmbulance && (
+        <div className="absolute left-4 top-4 z-[1000] w-[280px] rounded-xl border border-white/70 bg-white/92 p-4 text-slate-900 shadow-xl backdrop-blur">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Tracked Ambulance
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-lg">🚑</span>
+                <div>
+                  <div className="text-base font-semibold">{selectedAmbulance.id}</div>
+                  <div className="text-xs text-slate-500">{selectedAmbulance.label}</div>
+                </div>
+              </div>
+            </div>
+            <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+              selectedAmbulance.isLive
+                ? "bg-red-100 text-red-700"
+                : "bg-violet-100 text-violet-700"
+            }`}>
+              {selectedAmbulance.isLive ? "Live" : "Simulated"}
+            </span>
+          </div>
 
-      {routePoints.length > 1 && (
-        <Polyline
-          positions={routePoints}
-          pathOptions={{
-            color: "#ff3b3b",
-            weight: 2,
-            opacity: 0.5,
-            dashArray: "4 6",
-          }}
-        />
+          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+            <div className="rounded-lg bg-slate-100 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Status</div>
+              <div className="mt-1 font-medium">{selectedAmbulance.status}</div>
+            </div>
+            <div className="rounded-lg bg-slate-100 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Speed</div>
+              <div className="mt-1 font-medium">{Math.round(selectedAmbulance.speed)} km/h</div>
+            </div>
+          </div>
+        </div>
       )}
 
-      {ambulances.map((ambulance) => (
-        <AmbulanceMarker
-          key={ambulance.id}
-          position={[ambulance.lat, ambulance.lng]}
-          selected={ambulance.id === selectedAmbulanceId}
-          live={ambulance.isLive}
-        />
-      ))}
+      <div className="absolute right-4 top-4 z-[1000] w-[220px] rounded-xl border border-white/70 bg-white/92 p-4 text-slate-900 shadow-xl backdrop-blur">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          Route State
+        </div>
+        <div className="mt-3 space-y-2 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2 text-slate-600">
+              <Activity className="h-4 w-4 text-emerald-600" />
+              Corridor
+            </span>
+            <span className="font-semibold" style={{ color: getSignalColor(signalState) }}>
+              {signalState}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2 text-slate-600">
+              <LocateFixed className="h-4 w-4 text-blue-600" />
+              Distance
+            </span>
+            <span className="font-semibold">{distanceToTarget !== null ? `${distanceToTarget} m` : "--"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2 text-slate-600">
+              <MapPinned className="h-4 w-4 text-red-600" />
+              Destination
+            </span>
+            <span className="font-semibold">Hospital Gate</span>
+          </div>
+        </div>
+      </div>
 
-      <IntersectionMarker
-        position={[intersectionCoords.lat, intersectionCoords.lng]}
-        signalState={signalState}
-      />
-    </MapContainer>
+      <div className="absolute bottom-4 left-4 z-[1000] rounded-xl border border-white/70 bg-white/92 px-4 py-3 text-xs text-slate-600 shadow-lg backdrop-blur">
+        Blue route to destination. Colored dots show signal progression. Click a unit in the fleet to follow it.
+      </div>
+    </div>
   )
-}
-
-function AmbulanceMarker({
-  position,
-  selected = false,
-  live = false,
-}: {
-  position: [number, number]
-  selected?: boolean
-  live?: boolean
-}) {
-  const [L, setL] = useState<typeof import("leaflet") | null>(null)
-
-  useEffect(() => {
-    import("leaflet").then((leaflet) => {
-      setL(leaflet.default)
-    })
-  }, [])
-
-  if (!L) return null
-
-  const bg = selected ? "#ff5a36" : live ? "#ff3b3b" : "#d946ef"
-  const size = selected ? 46 : 38
-  const anchor = size / 2
-
-  const ambulanceIcon = L.divIcon({
-    className: "",
-    html: `<div style="
-      width: ${size}px;
-      height: ${size}px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      background: ${bg};
-      border: 2px solid #ffffff;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.3);
-      font-size: ${selected ? 24 : 20}px;
-      line-height: 1;
-    ">${AMBULANCE_EMOJI}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [anchor, anchor],
-  })
-
-  return <Marker position={position} icon={ambulanceIcon} />
-}
-
-function IntersectionMarker({
-  position,
-  signalState,
-}: {
-  position: [number, number]
-  signalState: string
-}) {
-  const [L, setL] = useState<typeof import("leaflet") | null>(null)
-
-  useEffect(() => {
-    import("leaflet").then((leaflet) => {
-      setL(leaflet.default)
-    })
-  }, [])
-
-  if (!L) return null
-
-  const color = signalState === "GREEN" ? "#4ade80" : signalState === "AMBER" ? "#f59e0b" : "#22d3ee"
-
-  const intersectionIcon = L.divIcon({
-    className: "",
-    html: `<div style="
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    ">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
-        <line x1="12" y1="2" x2="12" y2="22"/>
-        <line x1="2" y1="12" x2="22" y2="12"/>
-      </svg>
-    </div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  })
-
-  return <Marker position={position} icon={intersectionIcon} />
 }

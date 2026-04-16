@@ -6,7 +6,7 @@ import { ConsoleHeader } from "@/components/console/console-header"
 import { AmbulanceView } from "@/components/dashboard/views/ambulance-view"
 import { useSocket } from "@/hooks/use-socket"
 
-const INTERSECTION_COORDS = { lat: 12.7186, lng: 77.4944 }
+const INTERSECTION_COORDS = { lat: 12.9716, lng: 77.5946 }
 
 function AmbulanceConsoleContent() {
   const {

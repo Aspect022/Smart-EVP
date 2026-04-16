@@ -4,5 +4,6 @@ dist
 web-build
 npm-debug.*
 yarn-debug.*
+.env
 yarn-error.*
 

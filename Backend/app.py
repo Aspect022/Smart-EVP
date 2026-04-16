@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 import paho.mqtt.client as mqtt
+import requests
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO
 from flask_cors import CORS
@@ -37,9 +38,11 @@ system_state = {
     "gps": None,
     "signal": "RED",
     "case": None,
+    "case_status": "CALL_RECEIVED",
     "brief": None,
     "transcript": "",
     "distance": None,
+    "eta_seconds": None,
     "driver_status": "AVAILABLE",
     "driver": None,
     "accepted_case_id": None,
@@ -91,11 +94,15 @@ def on_message(client, userdata, msg):
             
         elif topic == "smartevp/dispatch/case":
             system_state["case"] = payload
+            system_state["case_status"] = "CALL_RECEIVED"
+            system_state["eta_seconds"] = None
             system_state["driver_status"] = "DISPATCHED"
             system_state["driver"] = None
             system_state["accepted_case_id"] = None
+            clear_medical_state()
             event_name = "new_case"
             log_event("CASE_OPENED", f"Case {payload.get('id')} — {payload.get('severity')} - {payload.get('location')}")
+            send_expo_dispatch_notifications(payload)
             
         elif topic == "smartevp/medical/transcript":
             new_text = payload.get("text", "").strip()
@@ -137,6 +144,78 @@ def start_mqtt():
         mqtt_client.loop_forever()
     except Exception as e:
         logger.error(f"MQTT Thread failed: {e}")
+
+
+def clear_medical_state():
+    system_state["brief"] = None
+    system_state["transcript"] = ""
+    socketio.emit("medical_brief", None)
+    socketio.emit("transcript_update", {"text": ""})
+
+
+def set_case_status(status, eta_seconds=None):
+    system_state["case_status"] = status
+    socketio.emit("case_status_update", {"status": status})
+    if eta_seconds is not None:
+        system_state["eta_seconds"] = eta_seconds
+        socketio.emit("eta_update", {"etaSeconds": eta_seconds})
+
+
+def send_expo_dispatch_notifications(case_payload):
+    tokens = system_state.get("expo_push_tokens", [])
+    if not tokens:
+        return
+
+    messages = []
+    for token in tokens:
+        messages.append({
+            "to": token,
+            "title": f"{case_payload.get('severity', 'Emergency')} dispatch incoming",
+            "body": f"{case_payload.get('id', 'Case')} · {case_payload.get('location', 'Unknown location')}",
+            "sound": "default",
+            "priority": "high",
+            "data": {
+                "caseId": case_payload.get("id"),
+                "ambulanceId": case_payload.get("ambulanceId"),
+            },
+        })
+
+    try:
+        response = requests.post(
+            "https://exp.host/--/api/v2/push/send",
+            json=messages,
+            timeout=10,
+        )
+        response.raise_for_status()
+        log_event("PUSH_SENT", f"Dispatch push sent to {len(messages)} mobile client(s)")
+    except Exception as error:
+        logger.error("Failed to send Expo push notification: %s", error)
+
+
+def replay_demo_route(route_filename, hz):
+    route_file = os.path.join(Config.BASE_DIR, route_filename)
+    if not os.path.exists(route_file):
+        logger.warning("Route file missing: %s", route_file)
+        return
+
+    replay_route(route_file, f"http://localhost:{Config.FLASK_PORT}/gps", hz)
+
+
+def run_demo_journey():
+    set_case_status("DISPATCHED", 240)
+    time.sleep(2)
+
+    set_case_status("EN_ROUTE_PATIENT", 180)
+    replay_demo_route("gps_route_patient.json", 0.35)
+
+    set_case_status("PATIENT_PICKED", 210)
+    time.sleep(6)
+
+    mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
+    set_case_status("EN_ROUTE_HOSPITAL", 240)
+    replay_demo_route("gps_route_hospital.json", 0.25)
+
+    set_case_status("ARRIVING", 90)
 
 # ── API Endpoints ──────────────────────────────────────────────────────
 
@@ -231,6 +310,8 @@ def reset_state():
     system_state["transcript"] = ""
     system_state["distance"] = None
     system_state["latency"] = None
+    system_state["case_status"] = "CALL_RECEIVED"
+    system_state["eta_seconds"] = None
     system_state["driver_status"] = "AVAILABLE"
     system_state["driver"] = None
     system_state["accepted_case_id"] = None
@@ -287,30 +368,14 @@ def trigger_demo_case():
     demo_case = {
         "id": f"C{int(time.time() % 10000):04d}",
         "severity": "CRITICAL",
-        "location": "BTM Layout, Bengaluru",
+        "location": "Patient Home - Indiranagar, Bengaluru",
         "complaint": "Heart attack patient, chest pain",
         "ambulanceId": "AMB-001",
         "timestamp": int(time.time() * 1000)
     }
     
-    # 1. Dispatch the case
     mqtt_client.publish("smartevp/dispatch/case", json.dumps(demo_case))
-    
-    # 1.5 Emit status update (since it's an auto-dispatch demo)
-    system_state["case_status"] = "DISPATCHED"
-    socketio.emit("case_status_update", {"status": "DISPATCHED"})
-    
-    # 2. Trigger audio AI pipeline automatically
-    mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
-    
-    # 3. Start GPS Replay in background so the ambulance actually drives!
-    route_file = os.path.join(Config.BASE_DIR, "gps_route.json")
-    if os.path.exists(route_file):
-        threading.Thread(
-            target=replay_route, 
-            args=(route_file, f"http://localhost:{Config.FLASK_PORT}/gps", 1.0), 
-            daemon=True
-        ).start()
+    threading.Thread(target=run_demo_journey, daemon=True).start()
         
     return jsonify({"status": "demo_started", "case": demo_case})
 
@@ -331,11 +396,14 @@ def upload_audio():
         return jsonify({"error": "Empty file"}), 400
         
     os.makedirs(Config.AUDIO_DIR, exist_ok=True)
-    file_path = os.path.join(Config.AUDIO_DIR, "emergency.wav")
+    _, extension = os.path.splitext(audio_file.filename or "")
+    extension = extension if extension else ".webm"
+    file_path = os.path.join(Config.AUDIO_DIR, f"incoming_audio{extension.lower()}")
     audio_file.save(file_path)
     logger.info(f"Saved incoming audio recording to {file_path}")
     
     # Trigger pipeline
+    clear_medical_state()
     mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
     log_event("AUDIO_UPLOAD", "Paramedic voice report submitted")
     
@@ -345,41 +413,16 @@ def upload_audio():
 def full_demo_flow():
     """Scripted 3-laptop demo trigger with precise timing"""
     def script_flow():
-        # 1. New Case (Admin sees it immediately)
         demo_case = {
             "id": f"C{int(time.time() % 10000):04d}",
             "severity": "CRITICAL",
-            "location": "BTM Layout, Bengalure",
+            "location": "Patient Home - Indiranagar, Bengaluru",
             "complaint": "Heart attack patient, chest pain",
             "ambulanceId": "AMB-001",
             "timestamp": int(time.time() * 1000)
         }
         mqtt_client.publish("smartevp/dispatch/case", json.dumps(demo_case))
-        time.sleep(1)
-        
-        # 2. Dispatch the ambulance
-        system_state["case_status"] = "DISPATCHED"
-        socketio.emit("case_status_update", {"status": "DISPATCHED"})
-        
-        # 3. Start GPS
-        route_file = os.path.join(Config.BASE_DIR, "gps_route.json")
-        if os.path.exists(route_file):
-            threading.Thread(
-                target=replay_route, 
-                args=(route_file, f"http://localhost:{Config.FLASK_PORT}/gps", 1.0), 
-                daemon=True
-            ).start()
-        time.sleep(5)
-        
-        # 4. En route to hospital with ETA
-        system_state["case_status"] = "EN_ROUTE_HOSPITAL"
-        socketio.emit("case_status_update", {"status": "EN_ROUTE_HOSPITAL"})
-        system_state["eta_seconds"] = 120
-        socketio.emit("eta_update", {"etaSeconds": 120})
-        time.sleep(2)
-        
-        # 5. Trigger Audio Processing (Generates brief)
-        mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
+        run_demo_journey()
         
     threading.Thread(target=script_flow, daemon=True).start()
     return jsonify({"status": "script_started"})

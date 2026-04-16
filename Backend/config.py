@@ -14,9 +14,9 @@ class Config:
     FLASK_PORT = 8080
     
     # ── GPS Target (Intersection) ──────────────────────────────────
-    # Dayananda Sagar University, Harohalli campus area
-    TARGET_LAT = 12.7186
-    TARGET_LNG = 77.4944
+    # Central Bengaluru demo target
+    TARGET_LAT = 12.9716
+    TARGET_LNG = 77.5946
     PREEMPTION_RADIUS_M = 500  # Distance at which to turn light GREEN
     RESET_RADIUS_M = 650       # Distance at which to reset to RED
     
@@ -29,6 +29,8 @@ class Config:
     # ── External Services ──────────────────────────────────────────
     OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "")
     OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma2:2b")
+    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+    GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
     
     TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
     TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")

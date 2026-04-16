@@ -91,7 +91,7 @@ export function DispatchProvider({ children }: PropsWithChildren) {
     void refresh();
     const timer = setInterval(() => {
       void refresh();
-    }, 2000);
+    }, 1000);
 
     return () => clearInterval(timer);
   }, [refresh]);

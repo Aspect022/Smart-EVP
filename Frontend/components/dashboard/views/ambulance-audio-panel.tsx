@@ -8,12 +8,13 @@ type AudioState = "idle" | "recording" | "processing" | "success" | "error"
 export function AmbulanceAudioPanel() {
   const [audioState, setAudioState] = useState<AudioState>("idle")
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
-  const isPointerActiveRef = useRef(false)
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
@@ -25,7 +26,9 @@ export function AmbulanceAudioPanel() {
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" })
         await uploadAudio(audioBlob)
-        stream.getTracks().forEach((track) => track.stop())
+        streamRef.current?.getTracks().forEach((track) => track.stop())
+        streamRef.current = null
+        mediaRecorderRef.current = null
       }
 
       mediaRecorder.start()
@@ -42,6 +45,15 @@ export function AmbulanceAudioPanel() {
       mediaRecorderRef.current.stop()
       setAudioState("processing")
     }
+  }
+
+  const toggleRecording = () => {
+    if (audioState === "processing") return
+    if (audioState === "recording") {
+      stopRecording()
+      return
+    }
+    startRecording()
   }
 
   const uploadAudio = async (blob: Blob) => {
@@ -63,18 +75,6 @@ export function AmbulanceAudioPanel() {
     }
   }
 
-  const handlePressStart = () => {
-    if (audioState === "processing" || audioState === "recording" || isPointerActiveRef.current) return
-    isPointerActiveRef.current = true
-    startRecording()
-  }
-
-  const handlePressEnd = () => {
-    if (!isPointerActiveRef.current) return
-    isPointerActiveRef.current = false
-    if (audioState === "recording") stopRecording()
-  }
-
   const icon = () => {
     if (audioState === "recording") return <MicOff className="h-20 w-20 text-red" />
     if (audioState === "processing") return <Loader2 className="h-20 w-20 animate-spin text-cyan" />
@@ -88,16 +88,7 @@ export function AmbulanceAudioPanel() {
       <div className="flex h-full items-center justify-center rounded-md border border-border bg-bg2">
         <div className="flex flex-col items-center gap-4">
           <button
-            onPointerDown={handlePressStart}
-            onPointerUp={handlePressEnd}
-            onPointerCancel={handlePressEnd}
-            onPointerLeave={handlePressEnd}
-            onKeyDown={(event) => {
-              if (event.key === " " || event.key === "Enter") handlePressStart()
-            }}
-            onKeyUp={(event) => {
-              if (event.key === " " || event.key === "Enter") handlePressEnd()
-            }}
+            onClick={toggleRecording}
             aria-label="Push to talk"
             className={`relative inline-flex h-52 w-52 items-center justify-center rounded-full border transition-all duration-300 ${
               audioState === "recording"
@@ -117,7 +108,9 @@ export function AmbulanceAudioPanel() {
             )}
             <span className="relative">{icon()}</span>
           </button>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">Push-to-Talk</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
+            {audioState === "recording" ? "Tap Again to Stop" : "Tap to Talk"}
+          </p>
         </div>
       </div>
     </div>

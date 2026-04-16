@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { socket, getBackendUrl } from "@/lib/socket";
+import { getSocket, getBackendUrl } from "@/lib/socket";
 
 export type CaseStatus = "CALL_RECEIVED" | "DISPATCHED" | "EN_ROUTE_PATIENT" | "PATIENT_PICKED" | "EN_ROUTE_HOSPITAL" | "ARRIVING";
 
@@ -48,6 +48,11 @@ export function useSocket() {
   }, []);
 
   useEffect(() => {
+    const socket = getSocket();
+    if (!socket) {
+      return;
+    }
+
     // Enable manual connection
     socket.connect();
 
@@ -62,7 +67,10 @@ export function useSocket() {
       setState((prev) => ({ ...prev, connected: false }));
       addLogEntry("SYSTEM", "Disconnected from Backend Server");
     };
-    const onConnectError = (err: Error) => console.error("Socket Connect Error:", err);
+    const onConnectError = (err: Error) => {
+      console.error("Socket Connect Error:", err);
+      setState((prev) => ({ ...prev, connected: false }));
+    };
 
     const onInitialState = (initialState: any) => {
       setState((prev) => ({ ...prev, ...initialState, connected: true, preemptionCount: prev.preemptionCount }));

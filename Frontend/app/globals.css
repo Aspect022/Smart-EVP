@@ -290,6 +290,11 @@ h1, h2, h3, h4, h5, h6 {
   background: #1e2838 !important;
 }
 
+.smartevp-map-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
 /* Diagonal rain animation - falling from right to left (wind blowing left) */
 @keyframes rain-diagonal {
   0% {

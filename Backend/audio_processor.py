@@ -25,6 +25,8 @@ DEMO_TRANSCRIPTS = [
     "ETA 4 minutes."
 ]
 
+SUPPORTED_AUDIO_EXTENSIONS = (".wav", ".webm", ".m4a", ".mp3", ".ogg")
+
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
         logger.info("Connected to MQTT Broker. Subscribing to audio commands.")
@@ -75,11 +77,25 @@ def transcribe_audio_hf(file_path):
         logger.error(f"Transcription failed: {e}")
         return None
 
+
+def resolve_latest_audio_file():
+    if not os.path.isdir(Config.AUDIO_DIR):
+        return None
+
+    candidates = [
+        os.path.join(Config.AUDIO_DIR, name)
+        for name in os.listdir(Config.AUDIO_DIR)
+        if name.lower().endswith(SUPPORTED_AUDIO_EXTENSIONS)
+    ]
+    if not candidates:
+        return None
+
+    return max(candidates, key=os.path.getmtime)
+
 def process_pipeline(mqtt_client):
     """Executes the full pipeline: ASR -> MQTT Transcript -> LLM Brief -> MQTT Brief"""
     
-    # Check for an emergency.wav in the audio dir, otherwise fall back to demo
-    test_file_path = os.path.join(Config.AUDIO_DIR, "emergency.wav")
+    test_file_path = resolve_latest_audio_file()
     full_transcript = transcribe_audio_hf(test_file_path)
     
     if full_transcript is None:
@@ -96,7 +112,7 @@ def process_pipeline(mqtt_client):
     logger.info(f"Final Transcript: '{full_transcript}'")
     
     # 2. Gemma AI Brief Generation
-    logger.info("Requesting Gemma medical brief...")
+    logger.info("Requesting structured medical brief...")
     brief = generate_medical_brief(full_transcript)
     
     # 3. Publish Brief Let Hospital know
