@@ -29,6 +29,14 @@ interface IncomingCase {
   createdAt: number
 }
 
+interface TimelineEntry {
+  key: string
+  label: string
+  detail: string
+  done: boolean
+  active: boolean
+}
+
 function formatEta(seconds: number | null) {
   if (seconds === null || seconds <= 0) return "--:--"
   const mins = Math.floor(seconds / 60)
@@ -56,6 +64,56 @@ function buildPatientName(caseData: any, briefData: any, fallbackIndex: number) 
   const caseId = caseData?.id || caseData?.case_id
   if (caseId) return `Patient ${caseId}`
   return `Patient ${fallbackIndex + 1}`
+}
+
+function buildTimeline(caseData: IncomingCase): TimelineEntry[] {
+  const status = caseData.status
+  const hasClinicalData = Boolean(caseData.transcript || caseData.brief)
+
+  return [
+    {
+      key: "call",
+      label: "Call received",
+      detail: `Control center received an emergency request from ${caseData.location}.`,
+      done: true,
+      active: status === "CALL_RECEIVED",
+    },
+    {
+      key: "dispatch",
+      label: "Ambulance dispatched",
+      detail: "Nearest ambulance was routed to the patient home.",
+      done: status !== "CALL_RECEIVED",
+      active: status === "DISPATCHED" || status === "EN_ROUTE_PATIENT",
+    },
+    {
+      key: "patient",
+      label: "Patient reached",
+      detail: "Crew reached the requested address and began field assessment.",
+      done: status === "PATIENT_PICKED" || status === "EN_ROUTE_HOSPITAL" || status === "ARRIVING",
+      active: status === "PATIENT_PICKED",
+    },
+    {
+      key: "intake",
+      label: "Medical intake prepared",
+      detail: hasClinicalData ? "Transcript and structured brief are available." : "Waiting for transcript and brief from the ambulance.",
+      done: hasClinicalData,
+      active: !hasClinicalData && (status === "PATIENT_PICKED" || status === "EN_ROUTE_HOSPITAL"),
+    },
+    {
+      key: "route",
+      label: "Hospital route active",
+      detail: "Patient is now on the hospital-bound leg.",
+      done: status === "EN_ROUTE_HOSPITAL" || status === "ARRIVING",
+      active: status === "EN_ROUTE_HOSPITAL",
+    },
+    {
+      key: "arrival",
+      label: "Final approach",
+      detail: "Ambulance is approaching the hospital handoff point.",
+      done: status === "ARRIVING",
+      active: status === "ARRIVING",
+    },
+  ]
 }
 
 export function HospitalView({
@@ -118,7 +176,7 @@ export function HospitalView({
     if (didCreate) {
       const incomingName = buildPatientName(activeCase, brief, 0)
       setSelectedCaseId(caseId)
-      setAlertMessage(`Alert: ${incomingName} is coming to hospital`)
+      setAlertMessage(`Control room linked ${incomingName} to this hospital`)
       const timeout = window.setTimeout(() => setAlertMessage(""), 4200)
       return () => window.clearTimeout(timeout)
     }
@@ -154,6 +212,7 @@ export function HospitalView({
     if (!selectedCaseId) return null
     return cases.find((item) => item.id === selectedCaseId) || null
   }, [cases, selectedCaseId])
+  const timeline = useMemo(() => (selectedCase ? buildTimeline(selectedCase) : []), [selectedCase])
 
   const exportCasePdf = () => {
     if (!selectedCase) return
@@ -318,6 +377,28 @@ export function HospitalView({
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-sm border border-border bg-bg2 p-4">
+                  <div className="mb-3 text-sm font-semibold text-text">Incident Timeline</div>
+                  <div className="space-y-3">
+                    {timeline.map((item) => (
+                      <div key={item.key} className="flex gap-3">
+                        <div
+                          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor: item.done ? "#22c55e" : item.active ? "#f59e0b" : "#475569",
+                          }}
+                        />
+                        <div>
+                          <div className={`text-sm ${item.done || item.active ? "text-text" : "text-text-dim"}`}>
+                            {item.label}
+                          </div>
+                          <div className="mt-1 text-xs text-text-dim">{item.detail}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-sm border border-border bg-bg2 p-4">
                   <div className="mb-3 text-sm font-semibold text-text">Medication / Allergy</div>
                   <div className="space-y-2 text-sm text-text-dim">
                     <p><span className="text-text">Medications:</span> {safeText(selectedCase.brief?.medications)}</p>
@@ -371,7 +452,11 @@ export function HospitalView({
                       {formatEta(item.etaSeconds)}
                     </span>
                   </div>
-                  <div className="text-sm text-text">{item.patientName} is coming</div>
+                  <div className="text-sm text-text">
+                    {item.status === "EN_ROUTE_HOSPITAL" || item.status === "ARRIVING"
+                      ? `${item.patientName} is inbound`
+                      : `${item.patientName} linked from control room`}
+                  </div>
                   <div className="mt-1 text-xs text-text-dim">
                     {item.location} · {item.status.replaceAll("_", " ")}
                   </div>

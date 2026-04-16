@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Ambulance, LocateFixed } from "lucide-react"
+import { Ambulance, LocateFixed, Radio } from "lucide-react"
 
 import { MapPanel, type TrackedAmbulance } from "@/components/dashboard/map-panel"
 import { SignalPanel } from "@/components/dashboard/signal-panel"
@@ -162,14 +162,6 @@ export function AdminView({
           />
 
           <div className="absolute left-4 bottom-4 z-[1000] flex gap-2">
-            {!activeCase && (
-              <button
-                onClick={handleStartDemo}
-                className="rounded-sm border border-border bg-bg px-4 py-2 text-xs font-mono uppercase tracking-[0.18em] text-text transition-colors hover:border-border2 hover:bg-bg2"
-              >
-                Start Demo Call
-              </button>
-            )}
             {!medicalBrief && activeCase && (
               <button
                 disabled={audioRunning}
@@ -201,6 +193,16 @@ export function AdminView({
               latency={latency}
               preemptionCount={preemptionCount}
             />
+          </div>
+
+          <div className="shrink-0 border-b border-border bg-bg px-4 py-3">
+            <button
+              onClick={handleStartDemo}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-sm border border-red/40 bg-red/10 px-3 py-3 text-xs font-mono uppercase tracking-[0.18em] text-red transition-colors hover:border-red/60 hover:bg-red/15"
+            >
+              <Radio className="h-4 w-4" />
+              {activeCase ? "Restart Demo Call" : "Trigger Demo Call"}
+            </button>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col bg-bg p-4">

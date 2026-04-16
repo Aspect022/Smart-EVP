@@ -48,6 +48,8 @@ system_state = {
     "accepted_case_id": None,
     "expo_push_tokens": [],
 }
+eta_countdown_lock = threading.Lock()
+eta_countdown_version = 0
 
 # ── MQTT Setup ────────────────────────────────────────────────────────
 mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -153,12 +155,41 @@ def clear_medical_state():
     socketio.emit("transcript_update", {"text": ""})
 
 
+def run_eta_countdown(version):
+    while True:
+        time.sleep(1)
+        with eta_countdown_lock:
+            if version != eta_countdown_version:
+                return
+
+        eta_seconds = system_state.get("eta_seconds")
+        if eta_seconds is None:
+            return
+        if eta_seconds <= 0:
+            system_state["eta_seconds"] = 0
+            socketio.emit("eta_update", {"etaSeconds": 0})
+            return
+
+        system_state["eta_seconds"] = eta_seconds - 1
+        socketio.emit("eta_update", {"etaSeconds": system_state["eta_seconds"]})
+
+
 def set_case_status(status, eta_seconds=None):
+    global eta_countdown_version
     system_state["case_status"] = status
     socketio.emit("case_status_update", {"status": status})
     if eta_seconds is not None:
         system_state["eta_seconds"] = eta_seconds
         socketio.emit("eta_update", {"etaSeconds": eta_seconds})
+        with eta_countdown_lock:
+            eta_countdown_version += 1
+            version = eta_countdown_version
+        threading.Thread(target=run_eta_countdown, args=(version,), daemon=True).start()
+    elif status == "CALL_RECEIVED":
+        with eta_countdown_lock:
+            eta_countdown_version += 1
+        system_state["eta_seconds"] = None
+        socketio.emit("eta_update", {"etaSeconds": None})
 
 
 def send_expo_dispatch_notifications(case_payload):
@@ -202,20 +233,20 @@ def replay_demo_route(route_filename, hz):
 
 
 def run_demo_journey():
-    set_case_status("DISPATCHED", 240)
+    set_case_status("DISPATCHED", 120)
     time.sleep(2)
 
-    set_case_status("EN_ROUTE_PATIENT", 180)
+    set_case_status("EN_ROUTE_PATIENT", 95)
     replay_demo_route("gps_route_patient.json", 0.35)
 
-    set_case_status("PATIENT_PICKED", 210)
+    set_case_status("PATIENT_PICKED", 45)
     time.sleep(6)
 
     mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
-    set_case_status("EN_ROUTE_HOSPITAL", 240)
+    set_case_status("EN_ROUTE_HOSPITAL", 180)
     replay_demo_route("gps_route_hospital.json", 0.25)
 
-    set_case_status("ARRIVING", 90)
+    set_case_status("ARRIVING", 60)
 
 # ── API Endpoints ──────────────────────────────────────────────────────
 
@@ -303,6 +334,7 @@ def register_push_token():
 @app.route("/api/reset", methods=["POST"])
 def reset_state():
     """Reset the demo state"""
+    global eta_countdown_version
     system_state["gps"] = None
     system_state["signal"] = "RED"
     system_state["case"] = None
@@ -316,6 +348,8 @@ def reset_state():
     system_state["driver"] = None
     system_state["accepted_case_id"] = None
     system_state["expo_push_tokens"] = system_state.get("expo_push_tokens", [])
+    with eta_countdown_lock:
+        eta_countdown_version += 1
     
     # Notify hardware to reset
     mqtt_client.publish("smartevp/signal/reset", json.dumps({"reason": "api_reset"}))
@@ -332,12 +366,7 @@ def update_case_status():
     if not data or "status" not in data:
         return jsonify({"error": "Missing status"}), 400
         
-    system_state["case_status"] = data["status"]
-    socketio.emit("case_status_update", {"status": data["status"]})
-    
-    if "etaSeconds" in data:
-        system_state["eta_seconds"] = data["etaSeconds"]
-        socketio.emit("eta_update", {"etaSeconds": data["etaSeconds"]})
+    set_case_status(data["status"], data.get("etaSeconds"))
         
     # Also log it for admin audit log
     log_event("STATUS_CHANGE", f"Ambulance transitioned to: {data['status']}")

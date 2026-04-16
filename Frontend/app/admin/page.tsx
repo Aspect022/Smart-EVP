@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense } from "react"
+import { Radio } from "lucide-react"
 
 import { ConsoleHeader } from "@/components/console/console-header"
 import { AdminView } from "@/components/dashboard/views/admin-view"
@@ -37,6 +38,15 @@ function AdminConsoleContent() {
         title="Admin Portal"
         consoleLabel="Admin Station"
         connected={connected}
+        statusContent={
+          <button
+            onClick={handleStartDemo}
+            className="inline-flex items-center gap-2 rounded-sm border border-red/40 bg-red/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.18em] text-red transition-colors hover:border-red/60 hover:bg-red/15"
+          >
+            <Radio className="h-4 w-4" />
+            {activeCase ? "Restart Demo Call" : "Trigger Demo Call"}
+          </button>
+        }
       />
       <main className="h-[calc(100vh-97px)]">
         <AdminView

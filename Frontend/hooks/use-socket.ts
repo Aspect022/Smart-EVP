@@ -34,6 +34,22 @@ const defaultState: AppState = {
   preemptionCount: 0,
 };
 
+function normalizeSnapshot(snapshot: any): Partial<AppState> {
+  return {
+    connected: Boolean(snapshot?.connected),
+    gps: snapshot?.gps ?? null,
+    signal: snapshot?.signal ?? "RED",
+    latency: snapshot?.latency ?? null,
+    case: snapshot?.case ?? null,
+    caseStatus: snapshot?.caseStatus ?? snapshot?.case_status ?? "CALL_RECEIVED",
+    brief: snapshot?.brief ?? null,
+    transcript: snapshot?.transcript ?? "",
+    distance: snapshot?.distance ?? null,
+    etaSeconds: snapshot?.etaSeconds ?? snapshot?.eta_seconds ?? null,
+    preemptionCount: snapshot?.preemptionCount ?? 0,
+  };
+}
+
 export function useSocket() {
   const [state, setState] = useState<AppState>(defaultState);
   const [auditLog, setAuditLog] = useState<{ ts: string; event: string; data: string }[]>([]);
@@ -52,10 +68,12 @@ export function useSocket() {
       const response = await fetch(`${getBackendUrl()}/api/state`);
       if (!response.ok) return;
       const snapshot = await response.json();
+      const normalized = normalizeSnapshot(snapshot);
       setState((prev) => ({
         ...prev,
-        ...snapshot,
-        connected: prev.connected || Boolean(snapshot.connected),
+        ...normalized,
+        connected: prev.connected || Boolean(normalized.connected),
+        preemptionCount: normalized.preemptionCount || prev.preemptionCount,
       }));
     } catch {
       // Keep socket as primary path; this is just a resilience fallback.
@@ -88,10 +106,17 @@ export function useSocket() {
     };
 
     const onInitialState = (initialState: any) => {
-      setState((prev) => ({ ...prev, ...initialState, connected: true, preemptionCount: prev.preemptionCount }));
+      const normalized = normalizeSnapshot(initialState);
+      setState((prev) => ({
+        ...prev,
+        ...normalized,
+        connected: true,
+        preemptionCount: normalized.preemptionCount || prev.preemptionCount,
+      }));
     };
     const onDemoReset = (resetState: any) => {
-      setState((prev) => ({ ...prev, ...resetState, connected: true, preemptionCount: 0 }));
+      const normalized = normalizeSnapshot(resetState);
+      setState((prev) => ({ ...prev, ...normalized, connected: true, preemptionCount: 0 }));
       setAuditLog([]);
       addLogEntry("SYSTEM", "System state reset");
     };
@@ -167,7 +192,7 @@ export function useSocket() {
     void refreshSnapshot();
     const timer = window.setInterval(() => {
       void refreshSnapshot();
-    }, 3000);
+    }, 1500);
 
     return () => window.clearInterval(timer);
   }, [refreshSnapshot]);

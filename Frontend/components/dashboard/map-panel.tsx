@@ -57,22 +57,21 @@ function resolveAmbulances(gpsData: GPSData | null, ambulances?: TrackedAmbulanc
 function createSignalPoints(
   start: { lat: number; lng: number } | null,
   end: { lat: number; lng: number },
-  signalState: "RED" | "AMBER" | "GREEN",
+  progress: number,
 ) {
   if (!start) return []
 
-  const statuses: Array<"RED" | "AMBER" | "GREEN"> =
-    signalState === "GREEN"
-      ? ["GREEN", "GREEN", "GREEN"]
-      : signalState === "AMBER"
-        ? ["AMBER", "AMBER", "GREEN"]
-        : ["RED", "AMBER", "GREEN"]
+  return [0.2, 0.5, 0.8].map((fraction) => {
+    let state: "RED" | "AMBER" | "GREEN" = "RED"
+    if (progress >= fraction + 0.12) state = "GREEN"
+    else if (progress >= fraction - 0.08) state = "AMBER"
 
-  return [0.25, 0.5, 0.75].map((fraction, index) => ({
-    lat: start.lat + (end.lat - start.lat) * fraction,
-    lng: start.lng + (end.lng - start.lng) * fraction,
-    state: statuses[index],
-  }))
+    return {
+      lat: start.lat + (end.lat - start.lat) * fraction,
+      lng: start.lng + (end.lng - start.lng) * fraction,
+      state,
+    }
+  })
 }
 
 function getDestination(activeCase: any, fallback: { lat: number; lng: number }, caseStatus?: string) {
@@ -140,6 +139,7 @@ export function MapPanel({
   const intersectionMarkerRef = useRef<any>(null)
   const ambulanceMarkersRef = useRef<Map<string, any>>(new Map())
   const signalMarkersRef = useRef<any[]>([])
+  const lastViewKeyRef = useRef<string>("")
   const [routePoints, setRoutePoints] = useState<[number, number][]>([])
 
   const trackedAmbulances = useMemo(
@@ -148,13 +148,30 @@ export function MapPanel({
   )
   const selectedAmbulance = trackedAmbulances.find((item) => item.id === selectedAmbulanceId) ?? trackedAmbulances[0] ?? null
   const selectedCoords = selectedAmbulance ? { lat: selectedAmbulance.lat, lng: selectedAmbulance.lng } : null
+  const patientCoords =
+    activeCase?.patientCoords?.lat && activeCase?.patientCoords?.lng
+      ? { lat: Number(activeCase.patientCoords.lat), lng: Number(activeCase.patientCoords.lng) }
+      : null
+  const hospitalCoords =
+    activeCase?.hospitalCoords?.lat && activeCase?.hospitalCoords?.lng
+      ? { lat: Number(activeCase.hospitalCoords.lat), lng: Number(activeCase.hospitalCoords.lng) }
+      : null
   const destination = useMemo(
     () => getDestination(activeCase, intersectionCoords, caseStatus),
     [activeCase, intersectionCoords, caseStatus],
   )
+  const hospitalLegProgress = useMemo(() => {
+    if (!patientCoords || !hospitalCoords || !selectedCoords || !destination.showSignals) return 0
+
+    const totalDistance = getDistanceMeters(patientCoords, hospitalCoords)
+    const remainingDistance = getDistanceMeters(selectedCoords, hospitalCoords)
+    if (!totalDistance || remainingDistance === null) return 0
+
+    return Math.min(Math.max((totalDistance - remainingDistance) / totalDistance, 0), 1)
+  }, [destination.showSignals, hospitalCoords, patientCoords, selectedCoords])
   const signalPoints = useMemo(
-    () => (destination.showSignals ? createSignalPoints(selectedCoords, destination.coords, signalState) : []),
-    [selectedCoords, destination, signalState],
+    () => (destination.showSignals ? createSignalPoints(patientCoords, destination.coords, hospitalLegProgress) : []),
+    [destination, hospitalLegProgress, patientCoords],
   )
   const distanceToTarget = useMemo(
     () => getDistanceMeters(selectedCoords, destination.coords),
@@ -194,8 +211,13 @@ export function MapPanel({
       const map = L.map(mapRef.current, {
         center: [destination.coords.lat, destination.coords.lng],
         zoom: 14,
-        zoomControl: true,
+        zoomControl: false,
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false,
       })
+
+      L.control.zoom({ position: "topleft" }).addTo(map)
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
@@ -248,6 +270,11 @@ export function MapPanel({
       }).addTo(map)
 
       mapInstanceRef.current = map
+      window.setTimeout(() => {
+        if (!cancelled && mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize(false)
+        }
+      }, 0)
     }
 
     loadLeaflet()
@@ -263,7 +290,7 @@ export function MapPanel({
         mapInstanceRef.current = null
       }
     }
-  }, [destination, signalState])
+  }, [])
 
   useEffect(() => {
     const L = leafletRef.current
@@ -399,13 +426,26 @@ export function MapPanel({
     const map = mapInstanceRef.current
     if (!map || !selectedCoords) return
 
+    const viewKey = [
+      activeCase?.id ?? "idle",
+      selectedAmbulanceId ?? "default",
+      destination.label,
+      caseStatus ?? "CALL_RECEIVED",
+    ].join(":")
+
+    if (lastViewKeyRef.current === viewKey) return
+    lastViewKeyRef.current = viewKey
+
     const bounds = [
       [selectedCoords.lat, selectedCoords.lng],
       [destination.coords.lat, destination.coords.lng],
     ]
 
-    map.fitBounds(bounds, { padding: [48, 48] })
-  }, [destination, selectedCoords])
+    map.fitBounds(bounds, {
+      padding: [48, 48],
+      animate: false,
+    })
+  }, [activeCase?.id, caseStatus, destination.coords.lat, destination.coords.lng, destination.label, selectedAmbulanceId])
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-sm border border-border bg-[#dbeafe]">
@@ -458,8 +498,8 @@ export function MapPanel({
               <Activity className="h-4 w-4 text-emerald-600" />
               Corridor
             </span>
-            <span className="font-semibold" style={{ color: getSignalColor(signalState) }}>
-              {signalState}
+            <span className="font-semibold" style={{ color: destination.showSignals ? getSignalColor(signalState) : "#334155" }}>
+              {destination.showSignals ? signalState : "ARMED"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3">
@@ -476,12 +516,15 @@ export function MapPanel({
             </span>
             <span className="font-semibold">{destination.label}</span>
           </div>
+          {destination.showSignals && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-600">Signal progress</span>
+              <span className="font-semibold">{Math.round(hospitalLegProgress * 100)}%</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 z-[1000] rounded-xl border border-white/70 bg-white/92 px-4 py-3 text-xs text-slate-600 shadow-lg backdrop-blur">
-        Solid blue line shows the path taken. Dashed line shows the live destination leg. Heart signals arm only on the hospital run.
-      </div>
     </div>
   )
 }
