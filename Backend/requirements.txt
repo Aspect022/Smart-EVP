@@ -1,0 +1,42 @@
+# SmartEVP+ Backend — Python Dependencies
+# Install inside the .venv:
+#   .venv\Scripts\pip install -r requirements.txt
+
+# ── Web Server ────────────────────────────────────────────────
+flask==3.1.1
+flask-socketio==5.5.1
+flask-cors==5.0.1
+python-engineio==4.12.1
+python-socketio==5.13.0
+
+# ── MQTT ─────────────────────────────────────────────────────
+paho-mqtt==2.1.0
+
+# ── Hardware Serial (Arduino) ─────────────────────────────────
+pyserial==3.5
+
+# ── Twilio (Emergency Call Intake) ────────────────────────────
+twilio==9.5.2
+
+# ── HTTP Requests (HuggingFace ASR API + GPS replay) ──────────
+requests==2.32.3
+
+# ── Audio Processing ──────────────────────────────────────────
+sounddevice==0.5.1
+scipy==1.15.3
+numpy==2.2.5
+# pyaudio — install separately if needed:
+#   pip install pyaudio
+# On Windows if pyaudio fails:
+#   pip install pipwin && pipwin install pyaudio
+
+# ── Environment Variables ─────────────────────────────────────
+python-dotenv==1.1.0
+
+# ── Async/EventLoop support for Flask-SocketIO ───────────────
+simple-websocket==1.1.0
+bidict==0.23.1
+
+# NOTE: 'ollama' package is NOT required here.
+# Gemma runs on a REMOTE machine. This backend calls it
+# via HTTP at OLLAMA_BASE_URL (see config.py and .env).
