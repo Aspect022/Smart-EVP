@@ -8,8 +8,16 @@ import { CtaSection } from "@/components/landing/cta-section"
 import { HardwareSection } from "@/components/landing/hardware-section"
 import { ImpactSection } from "@/components/landing/impact-section"
 import { Footer } from "@/components/landing/footer"
+import { DemoLauncher } from "@/components/landing/demo-launcher"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { Laptop } from "lucide-react"
 
-export default function LandingPage() {
+import { Suspense } from "react"
+
+function LandingContent() {
+  const searchParams = useSearchParams()
+  const isDemo = searchParams.get("demo") === "1"
   const [ambulanceData, setAmbulanceData] = useState<object | null>(null)
   const [heroComplete, setHeroComplete] = useState(false)
 
@@ -33,6 +41,10 @@ export default function LandingPage() {
       document.body.style.overflow = ""
     }
   }, [heroComplete])
+
+  if (isDemo) {
+    return <DemoLauncher />
+  }
 
   return (
     <main className="relative min-h-screen bg-bg overflow-x-hidden">
@@ -91,6 +103,22 @@ export default function LandingPage() {
         {/* Footer */}
         <Footer />
       </div>
+
+      {/* Floating Demo Launcher Toggle */}
+      <Link
+        href="/?demo=1"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-red/10 border-2 border-red text-red hover:bg-red hover:text-white rounded-full font-sans font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,59,59,0.3)] hover:-translate-y-1 hover:shadow-[0_4px_30px_rgba(255,59,59,0.5)]"
+      >
+        <Laptop className="w-5 h-5" /> 3-Laptop Demo Setup
+      </Link>
     </main>
+  )
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense fallback={<div className="h-screen bg-bg"></div>}>
+      <LandingContent />
+    </Suspense>
   )
 }

@@ -40,7 +40,9 @@ system_state = {
     "case": None,
     "brief": None,
     "transcript": "",
-    "distance": None
+    "distance": None,
+    "case_status": "CALL_RECEIVED",
+    "eta_seconds": None
 }
 
 # ── MQTT Setup ────────────────────────────────────────────────────────
@@ -146,6 +148,8 @@ def reset_state():
     system_state["transcript"] = ""
     system_state["distance"] = None
     system_state["latency"] = None
+    system_state["case_status"] = "CALL_RECEIVED"
+    system_state["eta_seconds"] = None
     
     # Notify hardware to reset
     mqtt_client.publish("smartevp/signal/reset", json.dumps({"reason": "api_reset"}))
@@ -154,6 +158,25 @@ def reset_state():
     socketio.emit("demo_reset", system_state)
     logger.info("System state reset via API")
     return jsonify({"status": "ok", "message": "State reset"})
+
+@app.route("/api/case/status", methods=["POST"])
+def update_case_status():
+    """Update case status and optional ETA"""
+    data = request.json
+    if not data or "status" not in data:
+        return jsonify({"error": "Missing status"}), 400
+        
+    system_state["case_status"] = data["status"]
+    socketio.emit("case_status_update", {"status": data["status"]})
+    
+    if "etaSeconds" in data:
+        system_state["eta_seconds"] = data["etaSeconds"]
+        socketio.emit("eta_update", {"etaSeconds": data["etaSeconds"]})
+        
+    # Also log it for admin audit log
+    log_event("STATUS_CHANGE", f"Ambulance transitioned to: {data['status']}")
+    
+    return jsonify({"status": "ok"})
 
 @app.route("/gps", methods=["POST"])
 def receive_gps():
@@ -187,6 +210,10 @@ def trigger_demo_case():
     
     # 1. Dispatch the case
     mqtt_client.publish("smartevp/dispatch/case", json.dumps(demo_case))
+    
+    # 1.5 Emit status update (since it's an auto-dispatch demo)
+    system_state["case_status"] = "DISPATCHED"
+    socketio.emit("case_status_update", {"status": "DISPATCHED"})
     
     # 2. Trigger audio AI pipeline automatically
     mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
