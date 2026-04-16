@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { socket } from "@/lib/socket";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+import { socket, getBackendUrl } from "@/lib/socket";
 
 // Default state structure
 export type AppState = {
@@ -128,7 +126,7 @@ export function useSocket() {
   // Method to request manual reset via API
   const resetDemo = useCallback(async () => {
     try {
-      await fetch(`${BACKEND_URL}/api/reset`, { method: "POST" });
+      await fetch(`${getBackendUrl()}/api/reset`, { method: "POST" });
     } catch (e) {
       console.error("Failed to reset backend state", e);
     }

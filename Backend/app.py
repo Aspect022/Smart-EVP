@@ -6,9 +6,11 @@ import paho.mqtt.client as mqtt
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO
 from flask_cors import CORS
+from pathlib import Path
 
 from config import Config
 from audit_log import log_event, init_db
+from gps_replay import replay_route
 
 # Try importing blueprints, but don't fail if they don't exist yet
 try:
@@ -182,8 +184,23 @@ def trigger_demo_case():
         "ambulanceId": "AMB-001",
         "timestamp": int(time.time() * 1000)
     }
+    
+    # 1. Dispatch the case
     mqtt_client.publish("smartevp/dispatch/case", json.dumps(demo_case))
-    return jsonify(demo_case)
+    
+    # 2. Trigger audio AI pipeline automatically
+    mqtt_client.publish("smartevp/command/process_audio", json.dumps({"action": "start"}))
+    
+    # 3. Start GPS Replay in background so the ambulance actually drives!
+    route_file = os.path.join(Config.BASE_DIR, "gps_route.json")
+    if os.path.exists(route_file):
+        threading.Thread(
+            target=replay_route, 
+            args=(route_file, f"http://localhost:{Config.FLASK_PORT}/gps", 1.0), 
+            daemon=True
+        ).start()
+        
+    return jsonify({"status": "demo_started", "case": demo_case})
 
 @app.route("/demo/audio", methods=["POST"])
 def trigger_demo_audio():

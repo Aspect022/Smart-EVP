@@ -9,8 +9,9 @@ import { MedicalBrief } from "@/components/dashboard/medical-brief"
 import { AuditLog } from "@/components/dashboard/audit-log"
 import { SystemMetrics } from "@/components/dashboard/system-metrics"
 
-// Import our new hook
+// Import our new hook and URL helper
 import { useSocket } from "@/hooks/use-socket"
+import { getBackendUrl } from "@/lib/socket"
 
 const INTERSECTION_COORDS = { lat: 12.9300, lng: 77.6100 }
 
@@ -35,7 +36,7 @@ export default function DashboardPage() {
   // Demo Trigger (Calls backend API instead of running local simulated timeouts)
   const handleStartDemo = async () => {
     try {
-        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/demo/trigger`, { method: "POST" });
+        await fetch(`${getBackendUrl()}/demo/trigger`, { method: "POST" });
         // Start GPS replay script from backend
     } catch (e) {
         console.error("Failed to trigger demo", e);
@@ -77,7 +78,7 @@ export default function DashboardPage() {
             {!medicalBrief && activeCase && (
                 <button 
                   onClick={async () => {
-                      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/demo/audio`, { method: "POST" });
+                      await fetch(`${getBackendUrl()}/demo/audio`, { method: "POST" });
                   }}
                   className="px-4 py-2 border border-text text-text font-bold opacity-50 hover:opacity-100 uppercase text-xs"
                 >
@@ -111,9 +112,10 @@ export default function DashboardPage() {
             { id: "audit", label: "Audit Log" },
             { id: "metrics", label: "System Metrics" },
           ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
+              <button
+                key={tab.id}
+                suppressHydrationWarning
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`px-6 py-3 text-sm font-mono uppercase tracking-wider transition-colors ${
                 activeTab === tab.id
                   ? "text-text border-b-2 border-cyan bg-bg2"

@@ -66,10 +66,10 @@ export function SystemMetrics({ latency, connected }: SystemMetricsProps) {
             <Wifi className="w-4 h-4" />
             <span className="text-xs font-mono uppercase tracking-wider">System Uptime</span>
           </div>
-          <div className="font-sans font-bold text-3xl text-cyan tabular-nums">
+          <div suppressHydrationWarning className="font-sans font-bold text-3xl text-cyan tabular-nums">
             {formatUptime(uptime)}
           </div>
-          <div className="text-xs text-text-muted mt-1">
+          <div suppressHydrationWarning className="text-xs text-text-muted mt-1">
             {connected ? "Connected" : "Disconnected"}
           </div>
         </div>
