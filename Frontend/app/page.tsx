@@ -29,13 +29,18 @@ function LandingContent() {
       .catch((err) => console.error("Failed to load ambulance animation:", err))
   }, [])
 
-  // Clean up body overflow just in case it was stuck
+  // Prevent body scroll until hero animation completes
   useEffect(() => {
-    document.body.style.overflow = ""
+    if (!heroComplete) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+
     return () => {
       document.body.style.overflow = ""
     }
-  }, [])
+  }, [heroComplete])
 
   if (isDemo) {
     return <DemoLauncher />
