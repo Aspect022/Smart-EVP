@@ -21,6 +21,8 @@ export function HomeScreen({ navigation }: RootScreenProps<"Home">) {
   const { t, language, setLanguage } = useLanguage();
   const { connected, pendingAlertCaseId } = useDispatchState();
   const pulse = useRef(new Animated.Value(1)).current;
+  const driverName = driver?.name ?? "Driver";
+  const firstName = driverName.split(" ")[0];
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -45,7 +47,7 @@ export function HomeScreen({ navigation }: RootScreenProps<"Home">) {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>
-              {t("hello")}, {driver?.name.split(" ")[0]}
+              {t("hello")}, {firstName}
             </Text>
             <Text style={styles.vehicle}>
               {driver?.vehicle} · {driver?.license}
