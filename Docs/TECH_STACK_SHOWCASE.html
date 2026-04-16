@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartEVP+ Tech Stack Showcase</title>
+  <style>
+    :root{--bg:#08111f;--panel:#0e1a2ecc;--line:#9db2d433;--text:#eaf2ff;--muted:#9eb0cc;--cyan:#49d7ff;--green:#3ddc97;--amber:#ffb84d;--red:#ff6b6b;--radius:20px;--shadow:0 20px 60px rgba(0,0,0,.28);--mono:"JetBrains Mono","Cascadia Code",Consolas,monospace;--sans:"Segoe UI",Inter,system-ui,sans-serif}
+    *{box-sizing:border-box} body{margin:0;font-family:var(--sans);color:var(--text);background:radial-gradient(circle at 10% 10%,rgba(73,215,255,.15),transparent 25%),radial-gradient(circle at 90% 10%,rgba(61,220,151,.1),transparent 20%),linear-gradient(180deg,#06101d,#0a1324)}
+    .page{width:min(1320px,calc(100vw - 24px));margin:0 auto;padding:18px 0 64px}
+    .hero,.panel,.card{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(14px);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .hero{padding:28px;margin-bottom:18px} .panel{padding:22px;margin-bottom:18px} .card{padding:18px}
+    .eyebrow,.badge{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font:600 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase}
+    .eyebrow{color:var(--cyan);border:1px solid rgba(73,215,255,.22);background:rgba(73,215,255,.08)}
+    .badge{border:1px solid transparent}.cyan{color:var(--cyan);background:rgba(73,215,255,.1);border-color:rgba(73,215,255,.18)}.green{color:var(--green);background:rgba(61,220,151,.1);border-color:rgba(61,220,151,.18)}.amber{color:var(--amber);background:rgba(255,184,77,.1);border-color:rgba(255,184,77,.18)}.red{color:var(--red);background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.18)}
+    h1{margin:16px 0 10px;font-size:clamp(2.4rem,5vw,4.4rem);line-height:.98;letter-spacing:-.05em} h2{margin:0;font-size:1.6rem;letter-spacing:-.03em} h3{margin:0;font-size:1.06rem}
+    p,li,td{color:var(--muted);line-height:1.6} .small{font-size:.95rem}.section-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+    .grid-2,.grid-3,.grid-4,.hero-grid{display:grid;gap:16px}.hero-grid{grid-template-columns:1.5fr 1fr;margin-top:22px}.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .stat{padding:16px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.03)} .stat .k{font:600 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}.stat .v{font-size:1.9rem;font-weight:700;letter-spacing:-.04em;margin-bottom:8px}
+    .stack-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+    ul{padding-left:18px;margin:0}.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.chip{padding:8px 12px;border-radius:999px;border:1px solid rgba(157,178,212,.14);background:rgba(255,255,255,.04);color:#dbe8ff;font:500 .84rem/1 var(--mono)}
+    code,.code{font-family:var(--mono)} .codebox{margin-top:12px;padding:14px 16px;border-radius:16px;border:1px solid rgba(157,178,212,.14);background:rgba(1,8,18,.66);font:500 .87rem/1.62 var(--mono);color:#cfe3ff;white-space:pre-wrap}
+    .mermaid-wrap{padding:10px;border-radius:16px;border:1px solid rgba(157,178,212,.14);background:rgba(1,8,18,.48);overflow:auto}
+    table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:rgba(255,255,255,.03)} th,td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid rgba(157,178,212,.12)} th{font:600 11px/1.3 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);background:rgba(73,215,255,.05)}
+    .footer{padding:18px 22px;border:1px solid var(--line);border-radius:20px;background:rgba(10,19,36,.76);color:var(--muted)}
+    @media (max-width:1100px){.hero-grid,.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="eyebrow">SmartEVP+ Platform Stack</div>
+      <h1>End-to-End Tech Stack Showcase</h1>
+      <p>SmartEVP+ is a real-time emergency response platform built around one host laptop that orchestrates call intake, dispatch, ambulance tracking, AI medical briefing, hospital readiness, mobile driver alerts, and physical signal-preemption hardware.</p>
+      <div class="hero-grid">
+        <div class="card">
+          <div class="section-top"><h2>System Identity</h2><span class="badge cyan">Event-Driven</span></div>
+          <p class="small">The platform combines Python backend services, MQTT messaging, Socket.IO live updates, a Next.js control interface, an Expo mobile app, AI integrations, and embedded field hardware in a single demo-ready architecture.</p>
+          <div class="chips">
+            <span class="chip">Flask + Socket.IO</span>
+            <span class="chip">Mosquitto MQTT</span>
+            <span class="chip">Next.js 16</span>
+            <span class="chip">React 19</span>
+            <span class="chip">Expo 54</span>
+            <span class="chip">Leaflet Maps</span>
+            <span class="chip">HF ASR</span>
+            <span class="chip">Ollama + Gemini</span>
+            <span class="chip">Arduino + ESP32</span>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="stat"><div class="k">Primary Screens</div><div class="v">3 + 1</div><p>Admin, ambulance, hospital, plus mobile driver app.</p></div>
+          <div class="stat"><div class="k">Core Pattern</div><div class="v">Host-Led</div><p>The host laptop is the single source of truth.</p></div>
+          <div class="stat"><div class="k">AI Jobs</div><div class="v">ASR + Brief</div><p>Speech transcription and medical summarization.</p></div>
+          <div class="stat"><div class="k">Hardware Goal</div><div class="v">Preemption</div><p>Visual traffic-signal override driven by route logic.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Architecture Topology</h2><span class="badge green">Single Source Of Truth</span></div>
+      <div class="mermaid-wrap"><pre class="mermaid">flowchart LR
+caller[Caller Phone] --> twilio[Twilio Call Intake]
+twilio --> backend[Python Backend]
+gps[ESP32 + GPS] -->|HTTP GPS updates| backend
+ambulanceAudio[Ambulance Audio Upload] --> backend
+backend --> mqtt[MQTT Event Bus]
+mqtt --> ai[Audio Processor + AI Layer]
+ai --> backend
+backend --> admin[Admin Web Console]
+backend --> amb[Ambulance Web Console]
+backend --> hosp[Hospital Web Console]
+backend --> mobile[Expo Driver App]
+backend --> arduino[Arduino LED Controller]</pre></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Operational Flow</h2><span class="badge amber">Patient First, Hospital Second</span></div>
+      <div class="mermaid-wrap"><pre class="mermaid">sequenceDiagram
+Admin->>Backend: Trigger demo call
+Backend->>MQTT: Publish dispatch case
+Backend->>Mobile: Push/live driver alert
+Backend->>Admin: New case event
+Backend->>Hospital: Control-room linked case
+Backend->>GPS: Start patient-leg replay
+GPS->>Backend: GPS updates
+Backend->>Admin: Live route + fleet updates
+Backend->>Hospital: ETA/status updates
+Backend->>Audio: Process uploaded paramedic audio
+Audio->>AI: Transcribe + summarize
+AI-->>Audio: Medical brief
+Audio->>Backend: Transcript + brief
+Backend->>Hospital: Intake readiness update
+Backend->>GPS: Start hospital-leg replay</pre></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Technology Layers</h2><span class="badge cyan">Repo-Derived</span></div>
+      <div class="grid-4">
+        <article class="card">
+          <div class="stack-head"><h3>Backend Core</h3><span class="badge cyan">Python</span></div>
+          <ul>
+            <li><code>flask==3.1.1</code></li>
+            <li><code>flask-socketio==5.5.1</code></li>
+            <li><code>flask-cors==5.0.1</code></li>
+            <li><code>python-socketio==5.13.0</code></li>
+            <li><code>python-engineio==4.12.1</code></li>
+            <li><code>python-dotenv==1.1.0</code></li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="stack-head"><h3>Realtime & Transport</h3><span class="badge green">Messaging</span></div>
+          <ul>
+            <li><code>paho-mqtt==2.1.0</code></li>
+            <li>Mosquitto broker on <code>localhost:1883</code></li>
+            <li>Socket.IO live fan-out to dashboards</li>
+            <li>HTTP endpoints for GPS, trigger, reset, ETA, audio, mobile state</li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="stack-head"><h3>AI & Speech</h3><span class="badge amber">Inference</span></div>
+          <ul>
+            <li>Hugging Face Inference API for ASR</li>
+            <li>Remote Ollama endpoint for primary brief generation</li>
+            <li>Gemini fallback for LLM resilience</li>
+            <li>Structured brief + transcript feed hospital readiness</li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="stack-head"><h3>Embedded Field Loop</h3><span class="badge red">Hardware</span></div>
+          <ul>
+            <li>ESP32 + NEO-6M GPS</li>
+            <li>Arduino over USB serial</li>
+            <li><code>pyserial==3.5</code></li>
+            <li>Traffic LEDs for preemption visualization</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Web Dashboard Stack</h2><span class="badge cyan">Next.js 16 / React 19</span></div>
+      <div class="grid-2">
+        <article class="card">
+          <div class="stack-head"><h3>Framework + UI Foundation</h3><span class="badge green">Frontend</span></div>
+          <ul>
+            <li><code>next@16.2.0</code>, <code>react@^19</code>, <code>react-dom@^19</code></li>
+            <li><code>tailwindcss@^4.2.0</code>, <code>@tailwindcss/postcss</code>, <code>tw-animate-css</code></li>
+            <li><code>typescript@5.7.3</code>, <code>lucide-react</code></li>
+            <li>Large Radix UI primitive set for dialogs, tabs, toasts, tooltips, selectors, and interaction surfaces</li>
+          </ul>
+          <div class="codebox">Primary web roles:
+- Admin Portal
+- Ambulance Console
+- Hospital Readiness Console
+- Landing / launcher experience</div>
+        </article>
+        <article class="card">
+          <div class="stack-head"><h3>Operational Features</h3><span class="badge amber">Live UI</span></div>
+          <ul>
+            <li><code>leaflet@^1.9.4</code> and <code>react-leaflet@^5.0.0</code> for maps</li>
+            <li><code>socket.io-client@^4.8.3</code> for realtime sync</li>
+            <li><code>react-hook-form</code>, <code>zod</code>, <code>@hookform/resolvers</code></li>
+            <li><code>recharts</code>, <code>embla-carousel-react</code>, <code>sonner</code>, <code>lottie-react</code></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Mobile Driver Stack</h2><span class="badge green">Expo SDK 54</span></div>
+      <div class="grid-3">
+        <article class="card">
+          <div class="stack-head"><h3>Core Runtime</h3><span class="badge cyan">Expo / RN</span></div>
+          <ul>
+            <li><code>expo@^54.0.0</code></li>
+            <li><code>react@19.1.0</code></li>
+            <li><code>react-native@0.81.5</code></li>
+            <li><code>typescript@^5.8.0</code></li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="stack-head"><h3>Navigation + Device APIs</h3><span class="badge amber">Field UX</span></div>
+          <ul>
+            <li><code>@react-navigation/native</code> and native stack</li>
+            <li><code>expo-device</code>, <code>expo-haptics</code>, <code>expo-status-bar</code></li>
+            <li><code>react-native-safe-area-context</code>, <code>react-native-screens</code>, <code>react-native-gesture-handler</code></li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="stack-head"><h3>Notifications</h3><span class="badge red">Dispatch</span></div>
+          <ul>
+            <li><code>expo-notifications</code> for dispatch alerts</li>
+            <li>Push token registration via backend</li>
+            <li>Polling fallback through <code>/api/mobile/state</code></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Service Integrations</h2><span class="badge amber">External Dependencies</span></div>
+      <table>
+        <thead><tr><th>Service</th><th>Purpose</th><th>Variables / Contract</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Twilio</td><td>Emergency call intake and driver notification flow</td><td><code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, <code>TWILIO_FROM_NUMBER</code>, <code>DRIVER_PHONE</code></td><td>Important for the complete live call story</td></tr>
+          <tr><td>Hugging Face</td><td>Speech transcription for ambulance audio</td><td><code>HF_API_KEY</code></td><td>Backend falls back to demo transcript fragments if absent</td></tr>
+          <tr><td>Ollama</td><td>Primary medical brief generation</td><td><code>OLLAMA_BASE_URL</code>, <code>OLLAMA_MODEL</code></td><td>Called over HTTP from backend</td></tr>
+          <tr><td>Gemini</td><td>Fallback LLM for brief generation</td><td><code>GEMINI_API_KEY</code>, <code>GEMINI_MODEL</code></td><td>Added for resilience when Ollama fails</td></tr>
+          <tr><td>Expo Push</td><td>Driver notification delivery</td><td>Expo push tokens stored by backend</td><td>Complements in-app dispatch polling</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Physical Demo Stack</h2><span class="badge red">Laptop-Centered Hardware</span></div>
+      <div class="grid-2">
+        <article class="card">
+          <div class="stack-head"><h3>Doc-Backed Physical Layout</h3><span class="badge green">Hardware Guide</span></div>
+          <ul>
+            <li>Host laptop runs backend, MQTT, AI, and dashboards</li>
+            <li>ESP32 on toy ambulance posts GPS data over Wi-Fi</li>
+            <li>Arduino drives red/yellow/green LEDs through serial commands</li>
+            <li>Phones cover caller flow and mobile driver experience</li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="stack-head"><h3>Demo Value</h3><span class="badge amber">Storytelling</span></div>
+          <ul>
+            <li>Software flow stays synchronized with physical movement</li>
+            <li>Signal preemption becomes visible, not just theoretical</li>
+            <li>GPS replay makes demos deterministic and repeatable</li>
+            <li>Hardware is simple enough to recover quickly on demo day</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Case Lifecycle Model</h2><span class="badge cyan">Operational States</span></div>
+      <div class="mermaid-wrap"><pre class="mermaid">stateDiagram-v2
+[*] --> CALL_RECEIVED
+CALL_RECEIVED --> DISPATCHED
+DISPATCHED --> EN_ROUTE_PATIENT
+EN_ROUTE_PATIENT --> PATIENT_PICKED
+PATIENT_PICKED --> EN_ROUTE_HOSPITAL
+EN_ROUTE_HOSPITAL --> ARRIVING
+ARRIVING --> [*]</pre></div>
+      <div class="codebox">Live route behavior in the current build:
+1. Only the patient-leg route is emphasized first
+2. Hospital view starts from control-room linkage, not premature arrival
+3. Hospital-leg route activates only after patient pickup
+4. Signal dots start red and progressively shift toward green as the ambulance approaches the hospital
+5. ETA is counted down from backend state</div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Environment Configuration</h2><span class="badge green">What Must Be Wired</span></div>
+      <div class="grid-3">
+        <article class="card"><div class="stack-head"><h3>Backend</h3><span class="badge cyan">Secrets</span></div><div class="codebox">TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+TWILIO_FROM_NUMBER
+DRIVER_PHONE
+HF_API_KEY
+OLLAMA_BASE_URL
+OLLAMA_MODEL
+GEMINI_API_KEY
+GEMINI_MODEL</div></article>
+        <article class="card"><div class="stack-head"><h3>Frontend</h3><span class="badge amber">Web</span></div><div class="codebox">NEXT_PUBLIC_BACKEND_URL
+
+Optional / documented:
+NEXT_PUBLIC_GOOGLE_MAPS_KEY</div></article>
+        <article class="card"><div class="stack-head"><h3>Mobile</h3><span class="badge red">Expo</span></div><div class="codebox">EXPO_PUBLIC_BACKEND_URL
+
+Notification readiness depends on:
+- Expo push token registration
+- Backend push relay</div></article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-top"><h2>Stack Summary Table</h2><span class="badge cyan">At A Glance</span></div>
+      <table>
+        <thead><tr><th>Layer</th><th>Primary Technologies</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td>Backend API</td><td>Python, Flask, Flask-SocketIO, Flask-CORS</td><td>State, orchestration, live API, case lifecycle</td></tr>
+          <tr><td>Messaging</td><td>Mosquitto MQTT, Paho MQTT</td><td>Decoupled internal event transport</td></tr>
+          <tr><td>AI</td><td>HF ASR, Ollama, Gemini</td><td>Transcription and medical summarization</td></tr>
+          <tr><td>Frontend</td><td>Next.js 16, React 19, Tailwind 4, Leaflet, Socket.IO client</td><td>Admin, ambulance, hospital web consoles</td></tr>
+          <tr><td>Mobile</td><td>Expo 54, React Native, React Navigation, Expo Notifications</td><td>Driver-facing dispatch UX</td></tr>
+          <tr><td>Hardware</td><td>ESP32, NEO-6M GPS, Arduino, LEDs</td><td>Ambulance tracking and traffic light actuation</td></tr>
+          <tr><td>Files / Storage</td><td>SQLite path, audio folder, GPS route JSON files</td><td>Lightweight persistence and deterministic playback</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="footer">This single-page stack document was built from the current repo manifests and docs: <span class="code">Backend/requirements.txt</span>, <span class="code">Backend/config.py</span>, <span class="code">Frontend/package.json</span>, <span class="code">Mobile/package.json</span>, and the project docs in <span class="code">Docs/</span>. Mermaid diagrams render in-browser using Mermaid's ESM build.</div>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "dark",
+      securityLevel: "loose",
+      fontFamily: "Segoe UI, Inter, sans-serif",
+      themeVariables: {
+        primaryColor: "#10233d",
+        primaryTextColor: "#eaf2ff",
+        primaryBorderColor: "#49d7ff",
+        lineColor: "#6ea8fe",
+        secondaryColor: "#0f1c31",
+        tertiaryColor: "#0b1627",
+        background: "#091321"
+      }
+    });
+  </script>
+</body>
+</html>
