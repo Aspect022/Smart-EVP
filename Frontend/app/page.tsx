@@ -29,18 +29,13 @@ function LandingContent() {
       .catch((err) => console.error("Failed to load ambulance animation:", err))
   }, [])
 
-  // Prevent body scroll until hero animation completes
+  // Clean up body overflow just in case it was stuck
   useEffect(() => {
-    if (!heroComplete) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = ""
-    }
-
+    document.body.style.overflow = ""
     return () => {
       document.body.style.overflow = ""
     }
-  }, [heroComplete])
+  }, [])
 
   if (isDemo) {
     return <DemoLauncher />
@@ -63,12 +58,12 @@ function LandingContent() {
               SmartEVP<span className="text-red">+</span>
             </span>
           </div>
-          <a
-            href="/dashboard"
-            className="text-sm text-text-dim hover:text-text transition-colors font-mono"
+          <Link
+            href="/?demo=1"
+            className="flex items-center gap-2 px-4 py-2 bg-red border-2 border-red text-white hover:bg-red/80 rounded-sm font-sans font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-lg text-xs"
           >
-            Dashboard →
-          </a>
+            <Laptop className="w-4 h-4" /> 3-Laptop Demo Setup
+          </Link>
         </div>
       </nav>
 
@@ -104,13 +99,6 @@ function LandingContent() {
         <Footer />
       </div>
 
-      {/* Floating Demo Launcher Toggle */}
-      <Link
-        href="/?demo=1"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-red/10 border-2 border-red text-red hover:bg-red hover:text-white rounded-full font-sans font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,59,59,0.3)] hover:-translate-y-1 hover:shadow-[0_4px_30px_rgba(255,59,59,0.5)]"
-      >
-        <Laptop className="w-5 h-5" /> 3-Laptop Demo Setup
-      </Link>
     </main>
   )
 }

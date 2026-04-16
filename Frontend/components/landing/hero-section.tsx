@@ -59,47 +59,40 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
     }))
   }, [])
 
-  // Total scroll distance needed to complete the animation (higher = slower)
-  const SCROLL_DISTANCE = 1800
-
-  const handleWheel = useCallback((e: WheelEvent) => {
-    if (isComplete) return
-
-    e.preventDefault()
-    
-    // Smooth scroll accumulation (lower multiplier = smoother feel)
-    accumulatedScroll.current += e.deltaY * 0.5
-    
-    // Clamp to valid range
-    accumulatedScroll.current = Math.max(0, Math.min(accumulatedScroll.current, SCROLL_DISTANCE))
-    
-    const newProgress = accumulatedScroll.current / SCROLL_DISTANCE
-    setProgress(newProgress)
-
-    // Control Lottie frame directly
-    if (lottieRef.current && ambulanceData) {
-      const totalFrames = 500
-      const frame = Math.floor(newProgress * totalFrames)
-      lottieRef.current.goToAndStop(frame, true)
-    }
-
-    // Check if animation is complete
-    if (newProgress >= 1 && !isComplete) {
-      setIsComplete(true)
-      onAnimationComplete()
-    }
-  }, [isComplete, ambulanceData, onAnimationComplete])
-
   useEffect(() => {
-    const container = containerRef.current
-    if (!container || isComplete) return
+    let startTime: number | null = null;
+    let animationFrameId: number;
+    const duration = 2500; // 2.5 seconds entrance animation
 
-    container.addEventListener("wheel", handleWheel, { passive: false })
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const newProgress = Math.min(elapsed / duration, 1);
+      
+      setProgress(newProgress);
+
+      if (lottieRef.current && ambulanceData) {
+        const totalFrames = 500;
+        const frame = Math.floor(newProgress * totalFrames);
+        lottieRef.current.goToAndStop(frame, true);
+      }
+
+      if (newProgress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      } else if (!isComplete) {
+        setIsComplete(true);
+        onAnimationComplete();
+      }
+    };
+
+    if (ambulanceData && !isComplete) {
+      animationFrameId = requestAnimationFrame(animate);
+    }
 
     return () => {
-      container.removeEventListener("wheel", handleWheel)
-    }
-  }, [handleWheel, isComplete])
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [isComplete, ambulanceData, onAnimationComplete]);
 
   // Set initial frame to 0
   useEffect(() => {
