@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import requests
@@ -59,7 +60,7 @@ If a value is missing or unknown, use "Unknown" or "--". Keep responses brief.
     url = f"{Config.OLLAMA_BASE_URL.rstrip('/')}/api/generate"
     payload = {
         "model": Config.OLLAMA_MODEL,
-        "prompt": f"{system_prompt}\n\nMagnetic Transcript: {transcript}",
+        "prompt": f"{system_prompt}\n\nParamedic Transcript: {transcript}",
         "stream": False
     }
 
@@ -81,9 +82,12 @@ If a value is missing or unknown, use "Unknown" or "--". Keep responses brief.
             return parsed_json
         except json.JSONDecodeError as je:
             logger.error(f"Gemma returned invalid JSON: {response_text}\nError: {je}")
-            FALLBACK_BRIEF["notes"] = f"Gemma API succeeded but returned invalid JSON. Original output: {response_text}"
-            return FALLBACK_BRIEF
+            fallback = copy.deepcopy(FALLBACK_BRIEF)
+            fallback["notes"] = f"Gemma returned invalid JSON. Raw output: {response_text[:200]}"
+            return fallback
             
     except Exception as e:
         logger.error(f"Failed to communicate with Ollama: {e}")
-        return FALLBACK_BRIEF
+        fallback = copy.deepcopy(FALLBACK_BRIEF)
+        fallback["notes"] = f"Ollama unreachable: {e}"
+        return fallback

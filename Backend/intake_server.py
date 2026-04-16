@@ -3,7 +3,7 @@ import json
 import time
 from twilio.twiml.voice_response import VoiceResponse
 from twilio.rest import Client
-from flask import Blueprint, request
+from flask import Blueprint, request, url_for
 import paho.mqtt.publish as publish
 
 from config import Config
@@ -58,7 +58,9 @@ def incoming_call():
     """Handles incoming Twilio calls"""
     resp = VoiceResponse()
     resp.say("Smart E V P Emergency Intake. Please state the nature and location of your emergency.")
-    resp.gather(input='speech', action='/twilio/speech', timeout=5)
+    # Use url_for to build the correct absolute URL for the speech handler
+    speech_url = url_for('intake.handle_speech', _external=True)
+    resp.gather(input='speech', action=speech_url, timeout=5, speechTimeout='auto')
     return str(resp)
 
 @intake_bp.route('/speech', methods=['GET', 'POST'])

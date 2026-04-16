@@ -90,10 +90,10 @@ def on_message(client, userdata, msg):
             log_event("CASE_OPENED", f"Case {payload.get('id')} — {payload.get('severity')} - {payload.get('location')}")
             
         elif topic == "smartevp/medical/transcript":
-            new_text = payload.get("text", "")
-            system_state["transcript"] += " " + new_text
-            # Emit the full transcript
-            data_to_emit = {"text": system_state["transcript"].strip()}
+            new_text = payload.get("text", "").strip()
+            existing = system_state["transcript"].strip()
+            system_state["transcript"] = f"{existing} {new_text}".strip()
+            data_to_emit = {"text": system_state["transcript"]}
             event_name = "transcript_update"
             
         elif topic == "smartevp/medical/brief":

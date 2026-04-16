@@ -2,22 +2,28 @@ import subprocess
 import time
 import sys
 import os
+import socket as _socket
+
+# Always resolve paths relative to THIS script's directory
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+VENV_PYTHON = os.path.join(SCRIPT_DIR, ".venv", "Scripts", "python.exe")
 
 def check_mosquitto():
     """Checks if Mosquitto is listening on port 1883"""
-    import socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
     result = sock.connect_ex(('127.0.0.1', 1883))
     sock.close()
     return result == 0
 
 def start_process(name, script):
-    print(f"[*] Starting {name}...")
-    venv_python = os.path.join(".venv", "Scripts", "python.exe")
-    # Using Popen to stream stdout without blocking
-    p = subprocess.Popen([venv_python, script], 
-                         stdout=sys.stdout, 
-                         stderr=sys.stderr)
+    script_path = os.path.join(SCRIPT_DIR, script)
+    print(f"[*] Starting {name}: {script_path}")
+    p = subprocess.Popen(
+        [VENV_PYTHON, script_path],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        cwd=SCRIPT_DIR,   # Always run from Backend/ so relative imports work
+    )
     return p
 
 if __name__ == "__main__":
@@ -45,7 +51,11 @@ if __name__ == "__main__":
         # Start the main Flask app
         processes.append(start_process("Flask Server", "app.py"))
         
-        print("\n[SUCCESS] All services started. Press Ctrl+C to stop.\n")
+        print("\n[SUCCESS] All services started. Press Ctrl+C to stop.")
+        print(f"  Backend API  : http://localhost:8080")
+        print(f"  Health check : http://localhost:8080/api/health")
+        print(f"  Demo trigger : POST http://localhost:8080/demo/trigger")
+        print(f"  GPS inject   : POST http://localhost:8080/gps\n")
         
         # Keep main thread alive
         while True:

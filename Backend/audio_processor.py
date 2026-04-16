@@ -78,11 +78,8 @@ def transcribe_audio_hf(file_path):
 def process_pipeline(mqtt_client):
     """Executes the full pipeline: ASR -> MQTT Transcript -> LLM Brief -> MQTT Brief"""
     
-    # Normally we'd record audio here. For this hackathon backend, we'll
-    # assume an emergency audio file exists, or we drop back to Demo.
-    test_audio_idx = 0
+    # Check for an emergency.wav in the audio dir, otherwise fall back to demo
     test_file_path = os.path.join(Config.AUDIO_DIR, "emergency.wav")
-    
     full_transcript = transcribe_audio_hf(test_file_path)
     
     if full_transcript is None:
