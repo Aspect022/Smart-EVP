@@ -1,11 +1,17 @@
 "use client"
 
-import { Activity, Heart, Droplets, Brain, AlertTriangle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Activity, Heart, Droplets, Brain, AlertTriangle, User, FileText, CheckCircle, ShieldAlert } from "lucide-react"
+import type { CaseStatus } from "@/hooks/use-socket"
 
 interface HospitalViewProps {
   brief: any
+  transcript: string
+  activeCase: any
   distance: number | null
   connected: boolean
+  caseStatus: CaseStatus
+  etaSeconds: number | null
 }
 
 // ECG Wave Component
@@ -29,10 +35,32 @@ function EcgWave({ color = "#ef4444" }: { color?: string }) {
   )
 }
 
-export function HospitalView({ brief, distance, connected }: HospitalViewProps) {
-  const estimatedSecondsLeft = distance ? Math.floor(distance / 10) : (brief ? brief.eta : 0);
-  const isArriving = estimatedSecondsLeft <= 120; // Siren mode < 2 mins
-  const isImminent = estimatedSecondsLeft <= 10 && distance !== null && distance < 100;
+export function HospitalView({ brief, transcript, activeCase, distance, connected, caseStatus, etaSeconds }: HospitalViewProps) {
+  const [localEta, setLocalEta] = useState<number | null>(etaSeconds)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [alertDismissed, setAlertDismissed] = useState(false)
+  
+  // Track arriving states
+  const isEnRoute = caseStatus === "EN_ROUTE_HOSPITAL" || caseStatus === "ARRIVING"
+  const isArriving = isEnRoute && (localEta !== null && localEta <= 120) // Siren mode < 2 mins OR distance < 2000m
+  const isImminent = caseStatus === "ARRIVING" && (localEta !== null && localEta <= 10)
+
+  useEffect(() => {
+    if (etaSeconds !== null) setLocalEta(etaSeconds)
+  }, [etaSeconds])
+
+  useEffect(() => {
+    if (localEta === null || localEta <= 0) return
+    const interval = setInterval(() => setLocalEta(prev => (prev && prev > 0 ? prev - 1 : 0)), 1000)
+    return () => clearInterval(interval)
+  }, [localEta])
+
+  // Look for alert triggering condition
+  useEffect(() => {
+    if (isEnRoute && !alertDismissed && !modalOpen) {
+       // Show alert banner, maybe play an audio chime here if needed
+    }
+  }, [isEnRoute, alertDismissed, modalOpen])
 
   const formatEta = (seconds: number) => {
     if (!seconds || seconds <= 0) return "--:--";
@@ -41,183 +69,251 @@ export function HospitalView({ brief, distance, connected }: HospitalViewProps) 
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  if (!brief) {
-      return (
-          <div className="h-full bg-bg flex flex-col items-center justify-center p-8">
-              <div className="w-24 h-24 border-2 border-border border-dashed rounded-full flex items-center justify-center mb-6">
-                 <Activity className="w-10 h-10 text-text-dim" />
-              </div>
-              <h2 className="text-2xl font-sans font-bold text-text-muted mb-2">AWAITING MEDICAL INTAKE</h2>
-              <p className="text-sm font-mono text-text-dim tracking-widest">{connected ? 'SYSTEM LINKED • STANDBY' : 'SYSTEM OFFLINE'}</p>
-          </div>
-      )
-  }
+  // Generate generic data if brief isn't ready
+  const priority = brief?.priority || activeCase?.severity || "PENDING"
+  const diagnosis = brief?.diagnosis || activeCase?.complaint || "Awaiting medical brief..."
+  const colorMode = priority === "CRITICAL" ? "red" : priority === "HIGH" ? "amber" : "green"
 
   return (
-    <div className={`flex flex-col flex-1 overflow-y-auto h-full p-8 transition-colors duration-700 ${isArriving && !isImminent ? "bg-red/5" : "bg-bg"}`}>
-        {/* Arriving Banner Imminent */}
-        {isImminent && (
-          <div className="mb-6 p-4 bg-red/20 border-2 border-red text-center shadow-[0_0_30px_rgba(239,68,68,0.3)] animate-pulse rounded-sm">
-            <span className="font-sans font-black text-3xl text-red tracking-widest uppercase">
-              PATIENT ARRIVING NOW — CLEAR BAY 1
-            </span>
+    <div className={`flex flex-col h-full overflow-hidden transition-colors duration-1000 ${
+        isArriving ? "bg-red/10" : "bg-bg" 
+    }`}>
+      
+      {/* Imminent Arrival Siren Overlays */}
+      {isArriving && (
+          <div className="absolute inset-0 pointer-events-none z-0">
+             <div className="absolute inset-0 border-[8px] border-red opacity-30 animate-pulse" />
+             <div className="absolute top-1/2 left-0 w-full h-[10vh] bg-red/5 blur-3xl" />
           </div>
-        )}
+      )}
 
-        {/* Header Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="md:col-span-2 p-6 bg-card border border-border rounded-sm shadow-lg flex flex-col justify-center">
-                <div className="flex items-center gap-3 mb-2">
-                    <span className="live-dot w-2 h-2" />
-                    <span className="text-xs font-mono text-green uppercase tracking-wider font-bold">
-                        LIVE BRIEF • GEMMA 4 ACTIVE
-                    </span>
-                    {distance && (
-                        <span className="text-xs font-mono text-cyan ml-4 border border-cyan/30 bg-cyan/10 px-2 py-0.5 rounded-sm">
-                        DIST: {distance}m
-                        </span>
+      {isImminent && (
+          <div className="absolute inset-0 bg-red z-50 flex items-center justify-center animate-pulse pointer-events-none mix-blend-screen">
+             <h1 className="text-white font-sans font-black text-8xl tracking-tight uppercase">PATIENT ARRIVING</h1>
+          </div>
+      )}
+
+      {/* Main Container */}
+      <div className="relative z-10 flex-1 grid grid-cols-12 gap-0 overflow-y-auto">
+        
+        {/* Left Column - Realtime Telemetry Grid */}
+        <div className="col-span-12 lg:col-span-4 border-r border-border flex flex-col bg-bg2">
+           <div className="p-6 border-b border-border bg-bg/50 backdrop-blur-md">
+             <div className="flex justify-between items-center mb-2">
+                 <h2 className="text-xl font-sans font-bold text-text flex items-center gap-2">
+                    <Activity className="text-cyan w-5 h-5" /> 
+                    Live Vitals
+                 </h2>
+                 <span className={`px-2 py-1 text-[10px] font-mono tracking-widest uppercase rounded-sm border ${
+                   connected ? "border-green/30 text-green bg-green/10" : "border-red/30 text-red bg-red/10 animate-pulse"
+                 }`}>
+                   {connected ? "TELEMETRY LINKED" : "OFFLINE"}
+                 </span>
+             </div>
+             <p className="text-xs text-text-muted font-mono uppercase tracking-widest">
+                Source: Unit AMB-001
+             </p>
+           </div>
+
+           <div className="flex-1 p-6 grid grid-cols-1 gap-6">
+              {/* Heart Rate / ECG */}
+              <div className="bg-bg border border-border rounded-md p-4 relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-3 opacity-30 group-hover:opacity-100 transition-opacity">
+                    <Heart className="w-8 h-8 text-red" />
+                 </div>
+                 <div className="text-xs text-text-muted font-mono uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red animate-pulse" />
+                    Heart Rate
+                 </div>
+                 <div className="flex items-end gap-2 mb-4">
+                    <div className="text-5xl font-sans font-black text-red tabular-nums leading-none">112</div>
+                    <div className="text-sm font-mono text-text-muted mb-1">BPM</div>
+                 </div>
+                 <div className="h-16 w-full -ml-4">
+                    <EcgWave color="#ef4444" />
+                 </div>
+              </div>
+
+              {/* BP & SpO2 */}
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="bg-bg border border-border rounded-md p-4">
+                    <div className="text-xs text-text-muted font-mono uppercase tracking-widest mb-2 flex items-center gap-2">
+                       <Activity className="w-3 h-3 text-cyan" /> BP
+                    </div>
+                    <div className="text-3xl font-sans font-black text-cyan tabular-nums">90/60</div>
+                 </div>
+                 <div className="bg-bg border border-border rounded-md p-4">
+                    <div className="text-xs text-text-muted font-mono uppercase tracking-widest mb-2 flex items-center gap-2">
+                       <Droplets className="w-3 h-3 text-amber" /> SpO2
+                    </div>
+                    <div className="text-3xl font-sans font-black text-amber tabular-nums">94<span className="text-base font-normal">%</span></div>
+                 </div>
+              </div>
+
+              {/* Glasgow Scale */}
+              <div className="bg-bg border border-border rounded-md p-4">
+                 <div className="text-xs text-text-muted font-mono uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <Brain className="w-3 h-3 text-purple" /> GCS
+                 </div>
+                 <div className="text-3xl font-sans font-black text-purple tabular-nums">15 <span className="text-sm font-normal text-text-muted tracking-wider uppercase">Conscious</span></div>
+              </div>
+           </div>
+        </div>
+
+        {/* Right Column - Medical Brief & Timeline */}
+        <div className="col-span-12 lg:col-span-8 flex flex-col bg-bg">
+           
+           {/* Top Sticky Alert Header (if incoming) */}
+           {isEnRoute && (
+              <div className={`p-4 border-b border-${colorMode} bg-${colorMode}/10 shadow-md`}>
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                       <div className={`bg-${colorMode}/20 p-3 rounded-full animate-pulse`}>
+                          <AlertTriangle className={`w-6 h-6 text-${colorMode}`} />
+                       </div>
+                       <div>
+                          <h2 className={`font-sans font-bold text-xl text-${colorMode} tracking-tight uppercase`}>Incoming Patient</h2>
+                          <p className="text-sm font-mono text-text">Unit AMB-001 • {brief ? "Code 3 ETA Updated" : "Awaiting Medical Brief..."}</p>
+                       </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-6">
+                       <div className="text-right">
+                          <div className={`text-xs font-mono text-${colorMode} uppercase tracking-widest mb-1`}>Live ETA</div>
+                          <div className={`text-3xl font-sans font-bold text-${colorMode} tabular-nums leading-none`}>
+                             {localEta !== null ? formatEta(localEta) : "--:--"}
+                          </div>
+                       </div>
+                       <button 
+                         onClick={() => setModalOpen(true)}
+                         className={`px-6 py-3 bg-${colorMode} text-white font-bold font-mono text-sm uppercase tracking-widest rounded-sm shadow-[0_0_20px_rgba(var(--${colorMode}-rgb),0.5)] hover:-translate-y-0.5 transition-transform`}
+                       >
+                         View Case Details →
+                       </button>
+                    </div>
+                 </div>
+              </div>
+           )}
+
+           {/* Transcript & AI Core Content */}
+           <div className="flex-1 p-8 overflow-y-auto">
+              {!brief && !transcript && !activeCase ? (
+                  <div className="h-full flex flex-col items-center justify-center opacity-30">
+                     <FileText className="w-16 h-16 mb-4" />
+                     <p className="font-mono text-lg uppercase tracking-widest">No Active Patient Intakes</p>
+                  </div>
+              ) : (
+                 <div className="max-w-4xl mx-auto space-y-8">
+                    
+                    {/* Patient Context Head */}
+                    <div className="flex items-start justify-between">
+                       <div>
+                         <h1 className="text-4xl font-sans font-black text-text mb-2">Patient #8291-A</h1>
+                         <p className="font-mono text-cyan uppercase tracking-widest flex items-center gap-2">
+                           <User className="w-4 h-4"/> 58 YO MALE
+                         </p>
+                       </div>
+                       <div className={`px-4 py-2 border-2 border-${colorMode} text-${colorMode} font-black text-xl uppercase tracking-widest rounded-sm`}>
+                         {priority} PRIORITY
+                       </div>
+                    </div>
+
+                    {/* AI Diagnosis Summary */}
+                    <div className="bg-bg2 p-6 border-l-4 border-cyan rounded-r-md">
+                       <h3 className="text-xs text-text-muted font-mono uppercase tracking-widest mb-3 flex items-center gap-2">
+                         <Brain className="w-4 h-4"/> AI Assessed Complaint
+                       </h3>
+                       <p className="text-2xl text-text font-serif leading-relaxed">
+                         {diagnosis}
+                       </p>
+                    </div>
+
+                    {/* The Full Medical Brief */}
+                    {brief && (
+                        <div className="grid grid-cols-2 gap-6 pt-4">
+                           <div className="col-span-2 md:col-span-1 p-5 border border-border bg-bg relative">
+                              <h3 className="text-xs text-text-muted font-mono uppercase tracking-widest mb-4">Required Resources</h3>
+                              <ul className="space-y-4">
+                                {(brief.resources || []).map((res: string, i: number) => (
+                                   <li key={i} className="flex items-start gap-3">
+                                      <CheckCircle className="w-5 h-5 text-green shrink-0 mt-0.5" />
+                                      <span className="font-sans text-text">{res}</span>
+                                   </li>
+                                ))}
+                              </ul>
+                           </div>
+                           
+                           <div className="col-span-2 md:col-span-1 p-5 border border-border bg-bg">
+                              <h3 className="text-xs text-text-muted font-mono uppercase tracking-widest mb-4">Vitals Summary & Interventions</h3>
+                               <p className="text-sm font-sans text-text-muted leading-relaxed mb-4">
+                                 {brief.vitals_summary}
+                               </p>
+                               {brief.allergies && brief.allergies !== "None reported" && (
+                                  <div className="p-3 bg-red/10 border border-red/30 rounded-sm">
+                                     <h4 className="text-[10px] text-red font-mono uppercase tracking-widest mb-1 flex items-center gap-1"><ShieldAlert className="w-3 h-3"/> Fast Alerts</h4>
+                                     <p className="text-xs text-white font-sans">{brief.allergies}</p>
+                                  </div>
+                               )}
+                           </div>
+                        </div>
                     )}
-                </div>
-                <h1 className="font-sans font-bold text-4xl text-amber mb-2">
-                    {brief.suspectedDiagnosis}
-                </h1>
-                <p className="text-text-dim text-xl font-mono">
-                    {brief.gender}, {brief.age} years old
-                </p>
-                <div className="mt-4 inline-block">
-                    <span className={`px-4 py-1.5 border font-mono font-bold text-sm tracking-widest uppercase ${
-                        brief.priority === 'P1' ? 'bg-red/10 text-red border-red/30' : 
-                        brief.priority === 'P2' ? 'bg-amber/10 text-amber border-amber/30' : 
-                        'bg-green/10 text-green border-green/30'
-                    }`}>
-                        {brief.priority} — {brief.priority === 'P1' ? 'IMMEDIATE' : brief.priority === 'P2' ? 'URGENT' : 'STANDARD'}
-                    </span>
-                </div>
-            </div>
 
-            {/* Huge ETA Countdown */}
-            <div className={`p-6 border rounded-sm shadow-lg flex flex-col items-center justify-center text-center transition-colors ${
-                isArriving ? "bg-red/10 border-red/50 shadow-[0_0_30px_rgba(239,68,68,0.2)]" : "bg-card border-border"
-            }`}>
-               <span className="text-sm font-mono text-text-muted uppercase tracking-widest block mb-2">
-                 Time to Arrival
-               </span>
-               <span className={`font-sans font-black text-6xl tabular-nums ${isArriving ? "text-red animate-pulse" : "text-text"}`}>
-                 {isImminent ? "0:00" : formatEta(estimatedSecondsLeft)}
-               </span>
-               {isArriving && !isImminent && (
-                   <span className="text-xs font-mono text-red uppercase tracking-widest mt-4 border border-red/30 px-2 py-1 bg-red/10 animate-pulse">SIREN MODE</span>
-               )}
-            </div>
-        </div>
-
-        {/* Chief Complaint */}
-        <div className="p-5 bg-bg3 border-l-4 border-red mb-8">
-            <span className="text-xs font-mono text-text-muted uppercase tracking-wider block mb-2">
-            Chief Complaint
-            </span>
-            <p className="text-text text-2xl font-sans font-semibold">
-            {brief.chiefComplaint}
-            </p>
-        </div>
-
-        {/* ECG Vitals Monitor */}
-        <div className="mb-8">
-            <span className="text-xs font-mono text-text-muted uppercase tracking-wider block mb-4">
-            Live Vitals Telemetry
-            </span>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-6 bg-card border border-border rounded-sm flex flex-col relative overflow-hidden">
-                <div className="flex items-center gap-2 text-text-muted mb-2">
-                    <Activity className="w-5 h-5" />
-                    <span className="text-xs font-mono uppercase tracking-widest">NIBP</span>
-                </div>
-                <div className="font-sans font-bold text-3xl text-text mb-4 z-10">{brief.vitals?.bp || "--"}</div>
-                <div className="absolute bottom-0 left-0 right-0 h-10 opacity-30">
-                    <EcgWave color="var(--text)" />
-                </div>
-            </div>
-            
-            <div className="p-6 bg-card border border-red/30 rounded-sm flex flex-col relative overflow-hidden shadow-[0_0_15px_rgba(239,68,68,0.1)]">
-                <div className="flex items-center gap-2 text-red mb-2">
-                    <Heart className="w-5 h-5" />
-                    <span className="text-xs font-mono uppercase tracking-widest text-red">HR</span>
-                </div>
-                <div className="font-sans font-bold text-3xl text-red mb-4 z-10">{brief.vitals?.hr || "--"} <span className="text-sm font-normal text-red/70">bpm</span></div>
-                <div className="absolute bottom-0 left-0 right-0 h-10">
-                    <EcgWave color="var(--red)" />
-                </div>
-            </div>
-
-            <div className="p-6 bg-card border border-amber/30 rounded-sm flex flex-col relative overflow-hidden">
-                <div className="flex items-center gap-2 text-amber mb-2">
-                    <Droplets className="w-5 h-5" />
-                    <span className="text-xs font-mono uppercase tracking-widest text-amber">SpO2</span>
-                </div>
-                <div className="font-sans font-bold text-3xl text-amber mb-4 z-10">{brief.vitals?.spo2 || "--"} <span className="text-sm font-normal text-amber/70">%</span></div>
-                <div className="absolute bottom-0 left-0 right-0 h-10">
-                    <EcgWave color="var(--amber)" />
-                </div>
-            </div>
-
-            <div className="p-6 bg-card border border-border rounded-sm flex flex-col relative overflow-hidden">
-                <div className="flex items-center gap-2 text-cyan mb-2">
-                    <Brain className="w-5 h-5" />
-                    <span className="text-xs font-mono uppercase tracking-widest text-cyan">GCS</span>
-                </div>
-                <div className="font-sans font-bold text-3xl text-cyan mb-4 z-10">{brief.vitals?.gcs || "--"} <span className="text-sm font-normal text-cyan/70">/15</span></div>
-            </div>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Resources to Prepare */}
-            {brief.resources && brief.resources.length > 0 && (
-                <div>
-                <div className="flex items-center gap-2 mb-4">
-                    <AlertTriangle className="w-5 h-5 text-green" />
-                    <span className="font-mono font-bold text-sm text-green uppercase tracking-wider">
-                    Required Resources
-                    </span>
-                </div>
-                <div className="flex flex-col gap-3">
-                    {brief.resources.map((resource: string, i: number) => (
-                    <div
-                        key={`resource-${i}`}
-                        className="px-5 py-4 bg-bg3 border border-border text-text font-mono text-sm rounded-sm flex items-center justify-between"
-                    >
-                        <span>{resource}</span>
-                        <div className="w-4 h-4 rounded-full border border-text-muted" />
+                    {/* Raw Transcript Logs */}
+                    <div className="pt-8 border-t border-border">
+                       <h3 className="text-xs text-text-muted font-mono uppercase tracking-widest mb-4">Paramedic Audio Transcript Log</h3>
+                       <div className="bg-bg3 border border-border rounded-sm p-5 font-mono text-sm text-text-dim leading-loose shadow-inner h-48 overflow-y-auto">
+                          {transcript ? (
+                             <p>{transcript}</p>
+                          ) : (
+                             <p className="italic opacity-50">Waiting for live audio feed...</p>
+                          )}
+                       </div>
                     </div>
-                    ))}
-                </div>
-                </div>
-            )}
 
-            {/* Meds & Notes */}
-            <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="p-5 bg-bg3 border border-border rounded-sm">
-                        <span className="text-xs font-mono text-text-muted uppercase tracking-wider block mb-2">
-                        Medications Given
-                        </span>
-                        <span className="text-text font-mono text-sm">{brief.medications || "None"}</span>
-                    </div>
-                    <div className="p-5 bg-bg3 border border-border rounded-sm">
-                        <span className="text-xs font-mono text-text-muted uppercase tracking-wider block mb-2">
-                        Known Allergies
-                        </span>
-                        <span className="text-text font-mono text-sm">{brief.allergies || "None"}</span>
-                    </div>
-                </div>
-                <div className="p-5 bg-bg3 border border-border rounded-sm">
-                    <span className="text-xs font-mono text-text-muted uppercase tracking-wider block mb-2">
-                    Paramedic Notes
-                    </span>
-                    <p className="text-text-dim text-sm font-mono leading-relaxed">{brief.notes || "-"}</p>
-                </div>
-            </div>
+                 </div>
+              )}
+           </div>
+
         </div>
+      </div>
+
+      {/* Incoming Patient Modal */}
+      {modalOpen && isEnRoute && (
+         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-bg/90 backdrop-blur-sm p-4">
+            <div className={`w-full max-w-2xl bg-bg border-2 border-${colorMode} shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col`}>
+               <div className={`bg-${colorMode} p-6 flex justify-between items-center`}>
+                  <h2 className="text-3xl font-black text-bg tracking-tight uppercase flex items-center gap-3">
+                    <AlertTriangle className="w-8 h-8"/> 
+                    Code {priority}: ETA {localEta !== null ? formatEta(localEta) : "--:--"}
+                  </h2>
+               </div>
+               <div className="p-8 space-y-6">
+                  <div>
+                    <h3 className="font-mono text-text-muted uppercase text-sm mb-2">Complaint / Presumptive</h3>
+                    <p className="text-xl text-text font-serif">{diagnosis}</p>
+                  </div>
+                  
+                  {brief && (
+                     <div className="p-4 bg-bg2 border border-border rounded-sm">
+                       <h3 className="font-mono text-cyan uppercase text-xs mb-3 flex items-center gap-2"><Brain className="w-4 h-4"/> Gemma 4 Recommendation</h3>
+                       <ul className="space-y-2">
+                         {brief.resources.map((r: string, i: number) => (
+                            <li key={i} className="text-sm border-b border-border pb-2 last:border-0 text-text">{r}</li>
+                         ))}
+                       </ul>
+                     </div>
+                  )}
+
+                  <button 
+                    onClick={() => setModalOpen(false)}
+                    className="w-full py-4 mt-4 border border-border hover:bg-bg3 transition-colors text-text font-bold font-mono uppercase tracking-widest"
+                  >
+                    Confirm & Acknowledge
+                  </button>
+               </div>
+            </div>
+         </div>
+      )}
     </div>
   )
 }

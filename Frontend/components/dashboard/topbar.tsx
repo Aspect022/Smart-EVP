@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { RotateCcw } from "lucide-react"
+import { RotateCcw, Play } from "lucide-react"
 
 export type ViewType = "admin" | "ambulance" | "hospital"
 
@@ -17,6 +17,7 @@ interface TopbarProps {
 
 export function Topbar({ connected, latency, activeCase, activeView, onViewChange, onReset }: TopbarProps) {
   const [currentTime, setCurrentTime] = useState<string>("")
+  const [networkIp, setNetworkIp] = useState<string>("")
 
   useEffect(() => {
     const updateTime = () => {
@@ -24,8 +25,23 @@ export function Topbar({ connected, latency, activeCase, activeView, onViewChang
     }
     updateTime()
     const interval = setInterval(updateTime, 1000)
+    
+    // Fetch network IP for demo instructions
+    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/api/health/network`)
+      .then(res => res.json())
+      .then(data => setNetworkIp(data.ip || ""))
+      .catch(() => {})
+
     return () => clearInterval(interval)
   }, [])
+
+  const handleFullDemo = async () => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/demo/full-flow`, { method: "POST" })
+    } catch(e) {
+      console.error(e)
+    }
+  }
 
   return (
     <header className="flex items-center justify-between px-6 py-3 bg-bg2 border-b border-border">
@@ -48,6 +64,11 @@ export function Topbar({ connected, latency, activeCase, activeView, onViewChang
               <span className="w-2 h-2 rounded-full bg-red" />
               <span className="text-red text-xs font-mono uppercase tracking-wider">OFFLINE</span>
             </>
+          )}
+          {networkIp && networkIp !== "127.0.0.1" && networkIp !== "localhost" && (
+            <span className="ml-2 px-2 py-0.5 bg-bg3 text-text-muted text-[10px] font-mono border border-border rounded-sm uppercase">
+              Host: {networkIp}
+            </span>
           )}
         </div>
       </div>
@@ -101,11 +122,21 @@ export function Topbar({ connected, latency, activeCase, activeView, onViewChang
         ))}
       </div>
 
-      {/* Right: Time + Reset */}
-      <div className="flex items-center gap-6">
+      {/* Right: Time + Actions */}
+      <div className="flex items-center gap-4">
         <span suppressHydrationWarning className="font-mono text-text-dim text-lg tabular-nums">
           {currentTime}
         </span>
+
+        {!activeCase && (
+          <button
+            onClick={handleFullDemo}
+            className="flex items-center gap-2 px-6 py-2 text-sm font-mono text-bg font-bold bg-cyan hover:bg-cyan/90 border border-transparent rounded-sm transition-colors shadow-[0_0_15px_rgba(34,211,238,0.3)] tracking-widest"
+          >
+            <Play className="w-4 h-4 fill-bg" />
+            <span>RUN FULL DEMO</span>
+          </button>
+        )}
 
         <button
           onClick={onReset}

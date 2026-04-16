@@ -8,8 +8,16 @@ import { CtaSection } from "@/components/landing/cta-section"
 import { HardwareSection } from "@/components/landing/hardware-section"
 import { ImpactSection } from "@/components/landing/impact-section"
 import { Footer } from "@/components/landing/footer"
+import { DemoLauncher } from "@/components/landing/demo-launcher"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { Laptop } from "lucide-react"
 
-export default function LandingPage() {
+import { Suspense } from "react"
+
+function LandingContent() {
+  const searchParams = useSearchParams()
+  const isDemo = searchParams.get("demo") === "1"
   const [ambulanceData, setAmbulanceData] = useState<object | null>(null)
   const [heroComplete, setHeroComplete] = useState(false)
 
@@ -34,6 +42,10 @@ export default function LandingPage() {
     }
   }, [heroComplete])
 
+  if (isDemo) {
+    return <DemoLauncher />
+  }
+
   return (
     <main className="relative min-h-screen bg-bg overflow-x-hidden">
       {/* Navigation Bar - Hidden until hero animation completes */}
@@ -51,12 +63,12 @@ export default function LandingPage() {
               SmartEVP<span className="text-red">+</span>
             </span>
           </div>
-          <a
-            href="/dashboard"
-            className="text-sm text-text-dim hover:text-text transition-colors font-mono"
+          <Link
+            href="/?demo=1"
+            className="flex items-center gap-2 px-4 py-2 bg-red border-2 border-red text-white hover:bg-red/80 rounded-sm font-sans font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-lg text-xs"
           >
-            Dashboard →
-          </a>
+            <Laptop className="w-4 h-4" /> 3-Laptop Demo Setup
+          </Link>
         </div>
       </nav>
 
@@ -91,6 +103,15 @@ export default function LandingPage() {
         {/* Footer */}
         <Footer />
       </div>
+
     </main>
+  )
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense fallback={<div className="h-screen bg-bg"></div>}>
+      <LandingContent />
+    </Suspense>
   )
 }

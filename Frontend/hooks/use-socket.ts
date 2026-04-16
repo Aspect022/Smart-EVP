@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { socket, getBackendUrl } from "@/lib/socket";
 
+export type CaseStatus = "CALL_RECEIVED" | "DISPATCHED" | "EN_ROUTE_PATIENT" | "PATIENT_PICKED" | "EN_ROUTE_HOSPITAL" | "ARRIVING";
+
 // Default state structure
 export type AppState = {
   connected: boolean;
@@ -10,9 +12,11 @@ export type AppState = {
   signal: "RED" | "AMBER" | "GREEN";
   latency: number | null;
   case: any | null;
+  caseStatus: CaseStatus;
   brief: any | null;
   transcript: string;
   distance: number | null;
+  etaSeconds: number | null;
   preemptionCount: number;
 };
 
@@ -22,9 +26,11 @@ const defaultState: AppState = {
   signal: "RED",
   latency: null,
   case: null,
+  caseStatus: "CALL_RECEIVED",
   brief: null,
   transcript: "",
   distance: null,
+  etaSeconds: null,
   preemptionCount: 0,
 };
 
@@ -69,8 +75,15 @@ export function useSocket() {
     const onGpsUpdate = (gpsData: any) => setState((prev) => ({ ...prev, gps: gpsData }));
     const onDistanceUpdate = (data: any) => setState((prev) => ({ ...prev, distance: data.distance_m }));
     const onNewCase = (caseData: any) => {
-      setState((prev) => ({ ...prev, case: caseData }));
+      setState((prev) => ({ ...prev, case: caseData, caseStatus: "CALL_RECEIVED" }));
       addLogEntry("CASE_OPENED", `${caseData.id} — ${caseData.severity} — ${caseData.location}`);
+    };
+    const onCaseStatusUpdate = (data: { status: CaseStatus }) => {
+      setState((prev) => ({ ...prev, caseStatus: data.status }));
+      addLogEntry("STATUS_UPDATE", `Case status shifted to ${data.status.replace(/_/g, " ")}`);
+    };
+    const onEtaUpdate = (data: { etaSeconds: number | null }) => {
+      setState((prev) => ({ ...prev, etaSeconds: data.etaSeconds }));
     };
     const onSmsDispatch = (data: any) => addLogEntry("SMS_SENT", `${data.ambulance} driver notified`);
     const onSignalUpdate = (signalData: any) => {
@@ -101,6 +114,8 @@ export function useSocket() {
     socket.on("gps_update", onGpsUpdate);
     socket.on("distance_update", onDistanceUpdate);
     socket.on("new_case", onNewCase);
+    socket.on("case_status_update", onCaseStatusUpdate);
+    socket.on("eta_update", onEtaUpdate);
     socket.on("dispatch_sms", onSmsDispatch);
     socket.on("signal_update", onSignalUpdate);
     socket.on("transcript_update", onTranscript);
@@ -115,6 +130,8 @@ export function useSocket() {
       socket.off("gps_update", onGpsUpdate);
       socket.off("distance_update", onDistanceUpdate);
       socket.off("new_case", onNewCase);
+      socket.off("case_status_update", onCaseStatusUpdate);
+      socket.off("eta_update", onEtaUpdate);
       socket.off("dispatch_sms", onSmsDispatch);
       socket.off("signal_update", onSignalUpdate);
       socket.off("transcript_update", onTranscript);
