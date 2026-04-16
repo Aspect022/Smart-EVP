@@ -1,5 +1,6 @@
 import { createContext, PropsWithChildren, useContext, useMemo, useState } from "react";
 
+import { DRIVERS } from "../config/drivers";
 import { DriverProfile } from "../types";
 
 type DriverContextValue = {
@@ -10,7 +11,7 @@ type DriverContextValue = {
 const DriverContext = createContext<DriverContextValue | undefined>(undefined);
 
 export function DriverProvider({ children }: PropsWithChildren) {
-  const [driver, setDriver] = useState<DriverProfile | null>(null);
+  const [driver, setDriver] = useState<DriverProfile | null>(DRIVERS[0] ?? null);
 
   const value = useMemo(
     () => ({
@@ -30,4 +31,3 @@ export function useDriver() {
   }
   return value;
 }
-
