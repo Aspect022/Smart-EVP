@@ -22,9 +22,7 @@ twilio==9.5.2
 requests==2.32.3
 
 # ── Audio Processing ──────────────────────────────────────────
-sounddevice==0.5.1
-scipy==1.15.3
-numpy==2.2.5
+# (No scipy/numpy required for current HF API webhook)
 # pyaudio — install separately if needed:
 #   pip install pyaudio
 # On Windows if pyaudio fails:

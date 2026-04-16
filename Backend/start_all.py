@@ -6,7 +6,7 @@ import socket as _socket
 
 # Always resolve paths relative to THIS script's directory
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-VENV_PYTHON = os.path.join(SCRIPT_DIR, ".venv", "Scripts", "python.exe")
+VENV_PYTHON = sys.executable
 
 def check_mosquitto():
     """Checks if Mosquitto is listening on port 1883"""

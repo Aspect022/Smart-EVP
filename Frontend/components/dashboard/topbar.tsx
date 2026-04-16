@@ -4,14 +4,18 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { RotateCcw } from "lucide-react"
 
+export type ViewType = "admin" | "ambulance" | "hospital"
+
 interface TopbarProps {
   connected: boolean
   latency: number | null
   activeCase: { id: string; severity: string } | null
+  activeView: ViewType
+  onViewChange: (view: ViewType) => void
   onReset: () => void
 }
 
-export function Topbar({ connected, latency, activeCase, onReset }: TopbarProps) {
+export function Topbar({ connected, latency, activeCase, activeView, onViewChange, onReset }: TopbarProps) {
   const [currentTime, setCurrentTime] = useState<string>("")
 
   useEffect(() => {
@@ -78,6 +82,23 @@ export function Topbar({ connected, latency, activeCase, onReset }: TopbarProps)
             </span>
           </div>
         )}
+      </div>
+
+      {/* View Toggles */}
+      <div className="flex items-center mx-4 bg-bg3 border border-border rounded-sm p-1">
+        {(["admin", "ambulance", "hospital"] as ViewType[]).map((view) => (
+          <button
+            key={view}
+            onClick={() => onViewChange(view)}
+            className={`px-4 py-1.5 text-xs font-mono uppercase tracking-wider rounded-sm transition-colors ${
+              activeView === view
+                ? "bg-bg text-text shadow-sm border border-border2"
+                : "text-text-muted hover:text-text"
+            }`}
+          >
+            {view}
+          </button>
+        ))}
       </div>
 
       {/* Right: Time + Reset */}

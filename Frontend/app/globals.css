@@ -321,3 +321,13 @@ h1, h2, h3, h4, h5, h6 {
 .animate-hover-float {
   animation: hover-float 3s ease-in-out infinite;
 }
+
+/* ECG wave scroll animation for Hospital View */
+@keyframes slide-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.ecg-wave-animate {
+  animation: slide-left 3s linear infinite;
+}

@@ -1,13 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Topbar } from "@/components/dashboard/topbar"
-import { SignalPanel } from "@/components/dashboard/signal-panel"
-import { CaseCard } from "@/components/dashboard/case-card"
-import { MapPanel } from "@/components/dashboard/map-panel"
-import { MedicalBrief } from "@/components/dashboard/medical-brief"
-import { AuditLog } from "@/components/dashboard/audit-log"
-import { SystemMetrics } from "@/components/dashboard/system-metrics"
+import { Topbar, ViewType } from "@/components/dashboard/topbar"
+import { AdminView } from "@/components/dashboard/views/admin-view"
+import { AmbulanceView } from "@/components/dashboard/views/ambulance-view"
+import { HospitalView } from "@/components/dashboard/views/hospital-view"
 
 // Import our new hook
 import { useSocket } from "@/hooks/use-socket"
@@ -30,7 +27,7 @@ export default function DashboardPage() {
     resetDemo 
   } = useSocket()
 
-  const [activeTab, setActiveTab] = useState<"hospital" | "audit" | "metrics">("hospital")
+  const [activeView, setActiveView] = useState<ViewType>("admin")
 
   // Demo Trigger (Calls backend API instead of running local simulated timeouts)
   const handleStartDemo = async () => {
@@ -49,93 +46,47 @@ export default function DashboardPage() {
         connected={connected}
         latency={latency}
         activeCase={activeCase ? { id: activeCase.id, severity: activeCase.severity } : null}
+        activeView={activeView}
+        onViewChange={setActiveView}
         onReset={() => {
-            // Call backend API reset endpoint
             resetDemo();
         }}
       />
 
-      {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Map Panel - 60% */}
-        <div className="flex-[3] relative border-r border-border">
-          <MapPanel
-            gpsData={gps}
-            signalState={signal}
-            intersectionCoords={INTERSECTION_COORDS}
-          />
-          {/* Developer Testing buttons (Visible in demo only) */}
-          <div className="absolute left-4 bottom-4 z-[1000] flex gap-2">
-            {!activeCase && (
-                <button 
-                  onClick={handleStartDemo}
-                  className="px-4 py-2 bg-text text-bg font-bold opacity-50 hover:opacity-100 uppercase text-xs"
-                >
-                  🚀 Trigger Demo Case
-                </button>
-            )}
-            {!medicalBrief && activeCase && (
-                <button 
-                  onClick={async () => {
-                      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/demo/audio`, { method: "POST" });
-                  }}
-                  className="px-4 py-2 border border-text text-text font-bold opacity-50 hover:opacity-100 uppercase text-xs"
-                >
-                  🎙️ Run Medical Audio
-                </button>
-            )}
-          </div>
-        </div>
-
-        {/* Signal Panel - 20% */}
-        <div className="flex-1 border-r border-border">
-          <SignalPanel
-            state={signal}
-            latency={latency}
-            preemptionCount={preemptionCount}
-          />
-        </div>
-
-        {/* Case Card - 20% */}
-        <div className="flex-1">
-          <CaseCard caseData={activeCase} />
-        </div>
-      </div>
-
-      {/* Bottom Tabs */}
-      <div className="border-t border-border h-72 flex-shrink-0">
-        {/* Tab Bar */}
-        <div className="flex border-b border-border">
-          {[
-            { id: "hospital", label: "Hospital Readiness" },
-            { id: "audit", label: "Audit Log" },
-            { id: "metrics", label: "System Metrics" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`px-6 py-3 text-sm font-mono uppercase tracking-wider transition-colors ${
-                activeTab === tab.id
-                  ? "text-text border-b-2 border-cyan bg-bg2"
-                  : "text-text-muted hover:text-text"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="h-[calc(100%-49px)] overflow-hidden">
-          {activeTab === "hospital" && (
-            <MedicalBrief brief={medicalBrief} transcript={transcript} />
-          )}
-          {activeTab === "audit" && <AuditLog events={auditLog} />}
-          {activeTab === "metrics" && (
-             <SystemMetrics latency={latency} connected={connected} />
-          )}
-        </div>
-      </div>
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-hidden relative flex flex-col">
+        {activeView === "admin" && (
+           <AdminView 
+             gps={gps}
+             signal={signal}
+             latency={latency}
+             activeCase={activeCase}
+             medicalBrief={medicalBrief}
+             transcript={transcript}
+             auditLog={auditLog}
+             connected={connected}
+             preemptionCount={preemptionCount}
+             intersectionCoords={INTERSECTION_COORDS}
+             handleStartDemo={handleStartDemo}
+           />
+        )}
+        {activeView === "ambulance" && (
+           <AmbulanceView 
+             gps={gps}
+             signal={signal}
+             distance={distance}
+             intersectionCoords={INTERSECTION_COORDS}
+             connected={connected}
+           />
+        )}
+        {activeView === "hospital" && (
+           <HospitalView 
+             brief={medicalBrief}
+             distance={distance}
+             connected={connected}
+           />
+        )}
+      </main>
     </div>
   )
 }
