@@ -6,6 +6,166 @@ SmartEVP+ is an emergency response orchestration platform that combines:
 - **Mobile driver companion app** (Expo React Native with dispatch alerts)
 
 The repository is organized as a multi-app workspace with one backend service and two clients (web + mobile) used together during demo and validation flows.
+## The problem SmartEVP+ solves
+Emergency response in dense city traffic fails for two recurring reasons:
+- **Critical delay at intersections:** ambulances lose time waiting behind normal traffic flow.
+- **Fragmented communication:** dispatch, ambulance crew, and hospital often do not share synchronized live context.
+- **Late clinical context at hospital:** hospitals receive incomplete pre-arrival information, reducing preparation time for trauma/cardiac cases.
+
+SmartEVP+ addresses this by combining realtime dispatch orchestration, signal preemption logic, GPS-aware routing state, and AI-assisted medical summarization into one coordinated control loop.
+
+## Project overview
+SmartEVP+ is designed as a coordinated emergency operations system with:
+- **One backend control plane** (state, events, orchestration, APIs)
+- **Three operational web roles** (Admin, Ambulance, Hospital)
+- **One mobile driver companion** (dispatch acceptance + alerts)
+- **IoT hardware edge** (ESP32 GPS telemetry + Arduino traffic signal LED controller)
+
+The result is a deterministic end-to-end workflow:
+1. Case is created (Twilio intake or demo trigger).
+2. Dispatch state is broadcast to all consoles and driver app.
+3. GPS feed continuously updates ambulance distance and ETA.
+4. Preemption logic triggers green-corridor signaling near target intersection.
+5. Audio transcript + AI medical brief are generated and shown to hospital before arrival.
+
+## System architecture (high level)
+```mermaid
+flowchart LR
+  Caller[Caller / Twilio Voice] --> Intake[Flask Intake Endpoint]
+  Demo[Demo Trigger API] --> Backend
+  Intake --> Backend[SmartEVP+ Backend<br/>Flask + Socket.IO]
+
+  ESP32[ESP32 + GPS] -->|HTTP /gps| Backend
+  Backend -->|MQTT publish/subscribe| Broker[(Mosquitto MQTT)]
+  Broker --> GPSP[GPS Processor]
+  Broker --> LEDC[LED Controller]
+  Broker --> AudioP[Audio Processor]
+  LEDC --> Arduino[Arduino USB Serial]
+  Arduino --> Traffic[Traffic Light LEDs]
+  AudioP --> AI[Ollama / Gemini]
+  AI --> Backend
+
+  Backend --> Admin[Admin Console]
+  Backend --> Amb[Ambulance Console]
+  Backend --> Hosp[Hospital Console]
+  Backend --> Mobile[Expo Driver App]
+  Mobile -->|Accept Dispatch| Backend
+```
+
+## Emergency lifecycle flow
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Caller as Caller
+  participant Twilio as Twilio
+  participant BE as Backend (Flask)
+  participant MQ as MQTT Broker
+  participant Admin as Admin UI
+  participant Ambulance as Ambulance UI
+  participant Mobile as Driver Mobile App
+  participant Audio as Audio Processor
+  participant AI as AI Brief Engine
+  participant Hospital as Hospital UI
+
+  Caller->>Twilio: Place emergency call
+  Twilio->>BE: Webhook with call details
+  BE->>MQ: Publish dispatch case
+  MQ->>Admin: new_case
+  MQ->>Ambulance: new_case
+  MQ->>Mobile: dispatch state available
+  Mobile->>BE: POST /api/driver/accept
+  BE->>MQ: Publish driver accepted
+  MQ->>Admin: status update
+  MQ->>Ambulance: status update
+
+  loop While ambulance moving
+    BE->>MQ: Publish GPS updates
+    MQ->>Admin: gps_update / distance_update
+    MQ->>Ambulance: gps_update / eta_update
+    MQ->>Hospital: eta_update
+  end
+
+  Ambulance->>BE: POST /api/audio/upload
+  BE->>Audio: Trigger process pipeline
+  Audio->>AI: Generate structured brief
+  AI-->>BE: Medical brief JSON
+  BE-->>Hospital: medical_brief + transcript_update
+```
+
+## Hardware components
+### Core hardware (demo setup)
+- **Laptop 1 (control host)**  
+  Runs backend services, MQTT broker, and optionally frontend host.
+- **Laptop 2 (ambulance operations view)**  
+  Displays ambulance UI and live route/ETA workflow.
+- **Laptop 3 (hospital readiness view)**  
+  Displays incoming patient alerts and medical brief.
+- **Arduino Uno/Nano + Red/Yellow/Green LEDs**  
+  Receives USB serial commands and simulates traffic signal preemption.
+- **ESP32 + NEO-6M GPS module**  
+  Sends live ambulance location data to backend.
+- **Toy ambulance platform + power bank**  
+  Physical carrier for ESP32/GPS during demo movement.
+
+### Optional/operational peripherals
+- **USB microphone** for paramedic voice capture flow.
+- **Phone 1** for emergency caller simulation.
+- **Phone 2** with Expo app for driver dispatch acceptance + notifications.
+
+## Software components
+### Backend and orchestration (`Backend/`)
+- **`app.py`**: central Flask + Socket.IO server, API endpoints, state fanout.
+- **`start_all.py`**: process orchestrator for all backend services.
+- **`gps_processor.py`**: computes distance to target and triggers preemption.
+- **`led_controller.py` + `arduino_controller.py`**: converts MQTT signal commands to Arduino serial actions.
+- **`audio_processor.py`**: transcript pipeline and medical brief trigger.
+- **`gemma_processor.py`**: AI brief generation with provider fallback chain.
+- **`intake_server.py`**: Twilio voice intake blueprint.
+
+### Web operations console (`Frontend/`)
+- **Next.js role-based interfaces**:
+  - `/admin` for command center
+  - `/ambulance` for field unit status
+  - `/hospital` for readiness + brief
+- **`hooks/use-socket.ts`** handles realtime event synchronization.
+
+### Mobile driver app (`Mobile/`)
+- Expo React Native app for:
+  - dispatch polling and active case display
+  - driver accept flow (`POST /api/driver/accept`)
+  - push token registration and notification handling
+
+### Messaging and realtime transport
+- **MQTT (Mosquitto)** for service-to-service event bus.
+- **Socket.IO** for low-latency UI broadcasting.
+
+## Case status state machine
+```mermaid
+stateDiagram-v2
+  [*] --> CALL_RECEIVED
+  CALL_RECEIVED --> DISPATCHED
+  DISPATCHED --> EN_ROUTE_PATIENT
+  EN_ROUTE_PATIENT --> PATIENT_PICKED
+  PATIENT_PICKED --> EN_ROUTE_HOSPITAL
+  EN_ROUTE_HOSPITAL --> ARRIVING
+  ARRIVING --> [*]
+```
+
+## How everything works together (end-to-end)
+1. **Intake phase**  
+   Emergency case is created from Twilio voice workflow or demo trigger API.
+2. **Dispatch phase**  
+   Backend publishes case event to MQTT, then broadcasts to all web views and mobile.
+3. **Acceptance phase**  
+   Driver accepts via mobile; backend updates global state and emits acknowledgement.
+4. **Transit phase**  
+   GPS updates are ingested and converted into distance + ETA + corridor trigger decisions.
+5. **Preemption phase**  
+   Once threshold is reached, LED controller drives Arduino to flip signal state.
+6. **Clinical intelligence phase**  
+   Audio transcript is processed and converted into structured medical brief.
+7. **Hospital readiness phase**  
+   Hospital console receives incoming ETA + transcript + AI brief before arrival.
 
 ## Repository structure
 ```text
