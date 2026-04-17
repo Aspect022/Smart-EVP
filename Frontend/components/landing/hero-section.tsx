@@ -54,6 +54,7 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
   const containerRef = useRef<HTMLDivElement>(null)
   const [progress, setProgress] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(0)
   const accumulatedScroll = useRef(0)
   const completionTriggeredRef = useRef(false)
@@ -133,6 +134,10 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
   }, [ambulanceData])
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth)
 
     updateViewportWidth()
@@ -180,16 +185,17 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
 
       {/* Rain Effect - Behind everything, diagonal from right to left */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
-        {rainDrops.map((drop) => (
-          <RainDrop
-            key={drop.id}
-            delay={drop.delay}
-            duration={drop.duration}
-            left={drop.left}
-            height={drop.height}
-            opacity={drop.opacity}
-          />
-        ))}
+        {isMounted &&
+          rainDrops.map((drop) => (
+            <RainDrop
+              key={drop.id}
+              delay={drop.delay}
+              duration={drop.duration}
+              left={drop.left}
+              height={drop.height}
+              opacity={drop.opacity}
+            />
+          ))}
       </div>
 
       {/* Red ambient glow - more intense, follows ambulance */}
