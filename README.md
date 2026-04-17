@@ -6,6 +6,7 @@ SmartEVP+ is an emergency response orchestration platform that combines:
 - **Mobile driver companion app** (Expo React Native with dispatch alerts)
 
 The repository is organized as a multi-app workspace with one backend service and two clients (web + mobile) used together during demo and validation flows.
+
 ## The problem SmartEVP+ solves
 Emergency response in dense city traffic fails for two recurring reasons:
 - **Critical delay at intersections:** ambulances lose time waiting behind normal traffic flow.
@@ -70,19 +71,21 @@ sequenceDiagram
   Caller->>Twilio: Place emergency call
   Twilio->>BE: Webhook with call details
   BE->>MQ: Publish dispatch case
-  MQ->>Admin: new_case
-  MQ->>Ambulance: new_case
-  MQ->>Mobile: dispatch state available
+  BE-->>Admin: Socket.IO new_case
+  BE-->>Ambulance: Socket.IO new_case
+  BE-->>Hospital: Socket.IO case update
+  Mobile->>BE: Poll /api/mobile/state
+  BE-->>Mobile: active_case + driver_status
   Mobile->>BE: POST /api/driver/accept
   BE->>MQ: Publish driver accepted
-  MQ->>Admin: status update
-  MQ->>Ambulance: status update
+  BE-->>Admin: Socket.IO status update
+  BE-->>Ambulance: Socket.IO status update
 
   loop While ambulance moving
     BE->>MQ: Publish GPS updates
-    MQ->>Admin: gps_update / distance_update
-    MQ->>Ambulance: gps_update / eta_update
-    MQ->>Hospital: eta_update
+    BE-->>Admin: gps_update / distance_update
+    BE-->>Ambulance: gps_update / eta_update
+    BE-->>Hospital: eta_update
   end
 
   Ambulance->>BE: POST /api/audio/upload
