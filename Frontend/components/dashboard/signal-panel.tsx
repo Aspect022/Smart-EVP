@@ -31,27 +31,27 @@ export function SignalPanel({ state, latency, preemptionCount }: SignalPanelProp
   const config = stateConfig[state]
 
   return (
-    <div className="bg-bg2 p-4">
-      <div className="mb-4">
+    <div className="bg-bg2 p-3.5">
+      <div className="mb-3">
         <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
           Intersection Control
         </div>
-        <h2 className="mt-1 font-mono text-xl font-semibold uppercase tracking-[0.12em] text-text">INT-01</h2>
+        <h2 className="mt-1 font-mono text-lg font-semibold uppercase tracking-[0.12em] text-text">INT-01</h2>
       </div>
 
-      <div className={`rounded-sm border p-3 ${config.border} ${config.bg}`}>
+      <div className={`rounded-sm border p-2.5 ${config.border} ${config.bg}`}>
         <div className="mb-1 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
           Current state
         </div>
-        <div className={`text-2xl font-semibold ${config.color}`}>{state}</div>
+        <div className={`text-xl font-semibold ${config.color}`}>{state}</div>
         <p className="mt-1 text-xs text-text-dim">{config.label}</p>
       </div>
 
-      <div className="mt-4 rounded-sm border border-border bg-bg p-3">
-        <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+      <div className="mt-3 rounded-sm border border-border bg-bg p-2.5">
+        <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
           Operational metrics
         </div>
-        <dl className="space-y-3 text-xs">
+        <dl className="space-y-2.5 text-xs">
           <div className="flex items-center justify-between gap-4">
             <dt className="text-text-muted">Latest latency</dt>
             <dd className="text-text">{latency !== null ? `${(latency / 1000).toFixed(1)}s` : "--"}</dd>

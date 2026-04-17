@@ -36,7 +36,7 @@ const PREEMPTION_RADIUS = 500
 function getSignalColor(signalState: "RED" | "AMBER" | "GREEN") {
   if (signalState === "GREEN") return "#4ade80"
   if (signalState === "AMBER") return "#f59e0b"
-  return "#22d3ee"
+  return "#ef4444"
 }
 
 function resolveAmbulances(gpsData: GPSData | null, ambulances?: TrackedAmbulance[]) {
@@ -86,7 +86,7 @@ function getDestination(activeCase: any, fallback: { lat: number; lng: number },
     return {
       coords: { lat: Number(hospitalCoords.lat), lng: Number(hospitalCoords.lng) },
       label: "Hospital",
-      icon: "🏥",
+      markerText: "H",
       showSignals: true,
     }
   }
@@ -95,7 +95,7 @@ function getDestination(activeCase: any, fallback: { lat: number; lng: number },
     return {
       coords: { lat: Number(patientCoords.lat), lng: Number(patientCoords.lng) },
       label: "Patient",
-      icon: "📍",
+      markerText: "P",
       showSignals: false,
     }
   }
@@ -103,9 +103,71 @@ function getDestination(activeCase: any, fallback: { lat: number; lng: number },
   return {
     coords: fallback,
     label: "Destination",
-    icon: "🏥",
+    markerText: "D",
     showSignals: true,
   }
+}
+
+function buildNodeMarkerHtml(label: string, background: string) {
+  return `
+    <div style="
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: ${background};
+      color: #ffffff;
+      border: 2px solid rgba(255,255,255,0.92);
+      box-shadow: 0 10px 24px rgba(15,23,42,0.28);
+      font: 700 15px/1 'Segoe UI', Arial, sans-serif;
+      letter-spacing: 0.08em;
+    ">${label}</div>
+  `
+}
+
+function buildSignalMarkerHtml(color: string, state: "RED" | "AMBER" | "GREEN") {
+  const glow =
+    state === "GREEN"
+      ? "0 0 0 8px rgba(74, 222, 128, 0.18)"
+      : state === "AMBER"
+        ? "0 0 0 8px rgba(245, 158, 11, 0.16)"
+        : "0 0 0 8px rgba(239, 68, 68, 0.14)"
+
+  return `
+    <div style="
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.98);
+      border: 3px solid ${color};
+      box-shadow: ${glow}, 0 6px 14px rgba(15,23,42,0.18);
+    ">
+      <div style="
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: ${color};
+      "></div>
+    </div>
+  `
+}
+
+function buildGuidePath(
+  start: { lat: number; lng: number } | null,
+  end: { lat: number; lng: number },
+  viaPoints: Array<{ lat: number; lng: number }>,
+) {
+  if (!start) return []
+  return [
+    [start.lat, start.lng],
+    ...viaPoints.map((point) => [point.lat, point.lng]),
+    [end.lat, end.lng],
+  ]
 }
 
 function getDistanceMeters(a: { lat: number; lng: number } | null, b: { lat: number; lng: number }) {
@@ -140,6 +202,7 @@ export function MapPanel({
   const ambulanceMarkersRef = useRef<Map<string, any>>(new Map())
   const signalMarkersRef = useRef<any[]>([])
   const lastViewKeyRef = useRef<string>("")
+  const phaseRef = useRef<string>("idle")
   const [routePoints, setRoutePoints] = useState<[number, number][]>([])
 
   const trackedAmbulances = useMemo(
@@ -177,6 +240,10 @@ export function MapPanel({
     () => getDistanceMeters(selectedCoords, destination.coords),
     [selectedCoords, destination],
   )
+  const guidePath = useMemo(
+    () => buildGuidePath(selectedCoords, destination.coords, signalPoints),
+    [destination.coords, selectedCoords, signalPoints],
+  )
 
   useEffect(() => {
     if (!gpsData) return
@@ -192,10 +259,16 @@ export function MapPanel({
   }, [gpsData])
 
   useEffect(() => {
+    const currentPhase = destination.showSignals ? "hospital" : activeCase ? "patient" : "idle"
+    if (phaseRef.current !== currentPhase) {
+      phaseRef.current = currentPhase
+      setRoutePoints([])
+    }
+
     if (!activeCase) {
       setRoutePoints([])
     }
-  }, [activeCase?.id])
+  }, [activeCase, destination.showSignals])
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
@@ -233,20 +306,7 @@ export function MapPanel({
       }).addTo(map)
 
       const destinationIcon = L.divIcon({
-        html: `
-          <div style="
-            width: 38px;
-            height: 38px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 999px;
-            background: #2563eb;
-            border: 2px solid rgba(255,255,255,0.9);
-            box-shadow: 0 10px 24px rgba(15,23,42,0.28);
-            font-size: 20px;
-          ">${destination.icon}</div>
-        `,
+        html: buildNodeMarkerHtml(destination.markerText, "#2563eb"),
         className: "smartevp-map-icon",
         iconSize: [38, 38],
         iconAnchor: [19, 19],
@@ -259,14 +319,20 @@ export function MapPanel({
       routeTrailRef.current = L.polyline([], {
         color: "#2563eb",
         weight: 5,
-        opacity: 0.82,
+        opacity: 0.9,
+        lineCap: "round",
+        lineJoin: "round",
+        smoothFactor: 1.4,
       }).addTo(map)
 
       routeGuideRef.current = L.polyline([], {
         color: "#1d4ed8",
         weight: 3,
-        opacity: 0.45,
+        opacity: 0.55,
         dashArray: "8 8",
+        lineCap: "round",
+        lineJoin: "round",
+        smoothFactor: 1.2,
       }).addTo(map)
 
       mapInstanceRef.current = map
@@ -307,20 +373,7 @@ export function MapPanel({
     })
 
     const destinationIcon = L.divIcon({
-      html: `
-        <div style="
-          width: 38px;
-          height: 38px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          background: #2563eb;
-          border: 2px solid rgba(255,255,255,0.9);
-          box-shadow: 0 10px 24px rgba(15,23,42,0.28);
-          font-size: 20px;
-        ">${destination.icon}</div>
-      `,
+      html: buildNodeMarkerHtml(destination.markerText, "#2563eb"),
       className: "smartevp-map-icon",
       iconSize: [38, 38],
       iconAnchor: [19, 19],
@@ -333,37 +386,16 @@ export function MapPanel({
     signalMarkersRef.current = signalPoints.map((signalPoint) => {
       const color = getSignalColor(signalPoint.state)
       const signalIcon = L.divIcon({
-        html: `
-          <div style="
-            width: 34px;
-            height: 34px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.94);
-            border: 3px solid ${color};
-            box-shadow: 0 4px 10px rgba(15,23,42,0.22);
-            color: ${color};
-            font-size: 16px;
-          ">♥</div>
-        `,
+        html: buildSignalMarkerHtml(color, signalPoint.state),
         className: "smartevp-map-icon",
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
       })
       return L.marker([signalPoint.lat, signalPoint.lng], { icon: signalIcon }).addTo(map)
     })
 
     if (routeGuideRef.current) {
-      routeGuideRef.current.setLatLngs(
-        selectedCoords
-          ? [
-              [selectedCoords.lat, selectedCoords.lng],
-              [destination.coords.lat, destination.coords.lng],
-            ]
-          : [],
-      )
+      routeGuideRef.current.setLatLngs(guidePath)
     }
 
     if (routeTrailRef.current) {
@@ -371,7 +403,7 @@ export function MapPanel({
         routePoints.map(([lat, lng]) => [lat, lng]),
       )
     }
-  }, [destination, selectedCoords, signalPoints, signalState, routePoints])
+  }, [destination, guidePath, signalPoints, signalState, routePoints])
 
   useEffect(() => {
     const L = leafletRef.current
@@ -391,21 +423,7 @@ export function MapPanel({
       const selected = ambulance.id === selectedAmbulanceId
       const bg = selected ? "#ff5a36" : ambulance.isLive ? "#dc2626" : "#7c3aed"
       const markerIcon = L.divIcon({
-        html: `
-          <div style="
-            width: ${selected ? 46 : 38}px;
-            height: ${selected ? 46 : 38}px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 999px;
-            background: ${bg};
-            border: 2px solid rgba(255,255,255,0.92);
-            box-shadow: 0 10px 24px rgba(15,23,42,0.30);
-            font-size: ${selected ? 24 : 20}px;
-            line-height: 1;
-          ">🚑</div>
-        `,
+        html: buildNodeMarkerHtml("A", bg),
         className: "smartevp-map-icon",
         iconSize: [selected ? 46 : 38, selected ? 46 : 38],
         iconAnchor: [selected ? 23 : 19, selected ? 23 : 19],
@@ -459,7 +477,7 @@ export function MapPanel({
                 Tracked Ambulance
               </div>
               <div className="mt-1 flex items-center gap-2">
-                <span className="text-lg">🚑</span>
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-xs font-bold tracking-[0.08em] text-white">A</span>
                 <div>
                   <div className="text-base font-semibold">{selectedAmbulance.id}</div>
                   <div className="text-xs text-slate-500">{selectedAmbulance.label}</div>

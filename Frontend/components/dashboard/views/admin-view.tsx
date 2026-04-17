@@ -1,7 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Ambulance, LocateFixed, Radio } from "lucide-react"
+import {
+  Activity,
+  Ambulance,
+  LocateFixed,
+  Radio,
+  Shield,
+  Siren,
+  Wifi,
+} from "lucide-react"
 
 import { MapPanel, type TrackedAmbulance } from "@/components/dashboard/map-panel"
 import { SignalPanel } from "@/components/dashboard/signal-panel"
@@ -93,7 +101,64 @@ export function AdminView({
     ]
   }, [activeCase, fleetTick, gps, intersectionCoords])
 
-  const selectedAmbulance = trackedAmbulances.find((item) => item.id === selectedAmbulanceId) ?? trackedAmbulances[0]
+  const selectedAmbulance =
+    trackedAmbulances.find((item) => item.id === selectedAmbulanceId) ?? trackedAmbulances[0]
+
+  const commandSnapshot = useMemo(() => {
+    const currentCaseId = activeCase?.id || activeCase?.case_id || "Standby"
+    return [
+      { label: "Case", value: currentCaseId },
+      { label: "Stage", value: activeCase ? caseStatus.replaceAll("_", " ") : "Awaiting dispatch" },
+      { label: "Transcript", value: transcript ? "Live" : "Pending" },
+      { label: "Brief", value: medicalBrief ? "Ready" : "Pending" },
+    ]
+  }, [activeCase, caseStatus, medicalBrief, transcript])
+
+  const adminStatusCards = useMemo(() => {
+    return [
+      {
+        label: "Network",
+        value: connected ? "Linked" : "Offline",
+        tone: connected ? "text-green" : "text-red",
+      },
+      {
+        label: "Signal",
+        value: signal,
+        tone: signal === "GREEN" ? "text-green" : signal === "AMBER" ? "text-amber" : "text-red",
+      },
+      {
+        label: "Brief",
+        value: medicalBrief ? "Ready" : "Queued",
+        tone: medicalBrief ? "text-cyan" : "text-text",
+      },
+      {
+        label: "Voice",
+        value: transcript ? "Streaming" : "Idle",
+        tone: transcript ? "text-cyan" : "text-text",
+      },
+    ]
+  }, [connected, medicalBrief, signal, transcript])
+
+  const recentAudit = useMemo(() => auditLog.slice(0, 5), [auditLog])
+  const mapStatusItems = useMemo(() => {
+    return [
+      {
+        label: "Link",
+        tone: connected ? "text-green" : "text-red",
+        icon: Wifi,
+      },
+      {
+        label: "Voice",
+        tone: transcript ? "text-cyan" : "text-red",
+        icon: Activity,
+      },
+      {
+        label: "Brief",
+        tone: medicalBrief ? "text-green" : "text-red",
+        icon: Shield,
+      },
+    ]
+  }, [connected, medicalBrief, transcript])
 
   useEffect(() => {
     if (!trackedAmbulances.some((item) => item.id === selectedAmbulanceId) && trackedAmbulances[0]) {
@@ -150,7 +215,7 @@ export function AdminView({
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-bg">
       <div className="flex flex-1 overflow-hidden">
-        <div className="relative min-w-0 flex-1 border-r border-border">
+        <div className="relative min-w-0 flex-[1.32] border-r border-border">
           <MapPanel
             gpsData={gps}
             signalState={signal}
@@ -160,6 +225,24 @@ export function AdminView({
             activeCase={activeCase}
             caseStatus={caseStatus}
           />
+
+          <div className="absolute left-4 top-1/2 z-[1000] -translate-y-1/2 rounded-sm border border-border bg-bg/92 p-2 shadow-lg backdrop-blur">
+            <div className="space-y-2">
+              {mapStatusItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <div key={item.label} className="flex items-center gap-2">
+                    <div className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-border bg-bg2">
+                      <Icon className={`h-3.5 w-3.5 ${item.tone}`} />
+                    </div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-text-muted">
+                      {item.label}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
 
           <div className="absolute left-4 bottom-4 z-[1000] flex gap-2">
             {!medicalBrief && activeCase && (
@@ -186,92 +269,155 @@ export function AdminView({
           </div>
         </div>
 
-        <div className="flex h-full w-[320px] flex-col border-r border-border bg-bg2">
-          <div className="shrink-0 border-b border-border">
-            <SignalPanel
-              state={signal}
-              latency={latency}
-              preemptionCount={preemptionCount}
-            />
-          </div>
+        <div className="grid h-full w-[520px] grid-cols-[272px_248px] border-r border-border bg-bg2">
+          <div className="flex min-h-0 flex-col border-r border-border">
+            <div className="shrink-0 border-b border-border">
+              <SignalPanel
+                state={signal}
+                latency={latency}
+                preemptionCount={preemptionCount}
+              />
+            </div>
 
-          <div className="shrink-0 border-b border-border bg-bg px-4 py-3">
-            <button
-              onClick={handleStartDemo}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-sm border border-red/40 bg-red/10 px-3 py-3 text-xs font-mono uppercase tracking-[0.18em] text-red transition-colors hover:border-red/60 hover:bg-red/15"
-            >
-              <Radio className="h-4 w-4" />
-              {activeCase ? "Restart Demo Call" : "Trigger Demo Call"}
-            </button>
-          </div>
+            <div className="shrink-0 border-b border-border bg-bg px-4 py-3">
+              <button
+                onClick={handleStartDemo}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-sm border border-red/40 bg-red/10 px-3 py-3 text-xs font-mono uppercase tracking-[0.18em] text-red transition-colors hover:border-red/60 hover:bg-red/15"
+              >
+                <Radio className="h-4 w-4" />
+                {activeCase ? "Restart Demo Call" : "Trigger Demo Call"}
+              </button>
+            </div>
 
-          <div className="flex min-h-0 flex-1 flex-col bg-bg p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-                  Ambulance Fleet
-                </div>
-                <div className="mt-1 text-sm text-text-dim">Select any unit to follow it on the map.</div>
+            <div className="shrink-0 border-b border-border bg-bg px-4 py-3">
+              <div className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+                <Activity className="h-3.5 w-3.5 text-cyan" />
+                Command Snapshot
               </div>
-              <div className="rounded-sm border border-border bg-bg2 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-text">
-                {trackedAmbulances.length} Live
+              <div className="grid grid-cols-2 gap-2">
+                {commandSnapshot.map((item) => (
+                  <div key={item.label} className="rounded-sm border border-border bg-bg2 px-2.5 py-2">
+                    <div className="text-[9px] font-mono uppercase tracking-[0.16em] text-text-muted">{item.label}</div>
+                    <div className="mt-1 text-xs font-medium text-text">{item.value}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-              <div className="space-y-2">
-              {trackedAmbulances.map((ambulance) => {
-                const selected = ambulance.id === selectedAmbulanceId
-
-                return (
-                  <button
-                    key={ambulance.id}
-                    onClick={() => setSelectedAmbulanceId(ambulance.id)}
-                    className={`w-full rounded-sm border px-3 py-3 text-left transition-colors ${
-                      selected
-                        ? "border-red/40 bg-red/10"
-                        : "border-border bg-bg2 hover:border-border2 hover:bg-bg3"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-text">
-                          <Ambulance className={`h-4 w-4 ${ambulance.isLive ? "text-red" : "text-cyan"}`} />
-                          <span>{ambulance.id}</span>
-                          {ambulance.isLive && (
-                            <span className="rounded-full bg-red/15 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-red">
-                              Live
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 text-xs text-text-dim">{ambulance.label}</div>
-                        <div className="mt-2 text-xs text-text">{ambulance.status}</div>
+            <div className="min-h-0 flex-1 p-4">
+              <div className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+                <Siren className="h-3.5 w-3.5 text-red" />
+                Recent Control Feed
+              </div>
+              <div className="min-h-0 max-h-full space-y-2 overflow-y-auto">
+                {recentAudit.length > 0 ? (
+                  recentAudit.map((entry, index) => (
+                    <div key={`${entry.ts}-${entry.event}-${index}`} className="rounded-sm border border-border bg-bg2 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-cyan">{entry.event}</div>
+                        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-text-muted">{entry.ts}</div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs font-mono uppercase tracking-[0.16em] text-text-muted">Speed</div>
-                        <div className="mt-1 font-mono text-sm text-text">{Math.round(ambulance.speed)} km/h</div>
-                      </div>
+                      <div className="mt-2 text-xs leading-5 text-text-dim">{entry.data}</div>
                     </div>
-                  </button>
-                )
-              })}
+                  ))
+                ) : (
+                  <div className="rounded-sm border border-dashed border-border bg-bg2 px-3 py-3 text-xs leading-5 text-text-dim">
+                    Trigger a demo call to populate the live control feed with dispatch, signal, voice, and status events.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-col bg-bg">
+            <div className="border-b border-border p-4">
+              <div className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+                <Shield className="h-3.5 w-3.5 text-green" />
+                Admin Status
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {adminStatusCards.map((item) => (
+                  <div key={item.label} className="rounded-sm border border-border bg-bg2 px-3 py-2.5">
+                    <div className="text-[9px] font-mono uppercase tracking-[0.16em] text-text-muted">{item.label}</div>
+                    <div className={`mt-1 text-sm font-semibold ${item.tone}`}>{item.value}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {selectedAmbulance && (
-              <div className="mt-3 shrink-0 rounded-sm border border-border bg-bg2 px-3 py-3">
-                <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-                  <LocateFixed className="h-3.5 w-3.5 text-cyan" />
-                  Tracking Now
+            <div className="border-b border-border p-4">
+              {selectedAmbulance && (
+                <div className="rounded-sm border border-border bg-bg2 px-3 py-3">
+                  <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+                    <LocateFixed className="h-3.5 w-3.5 text-cyan" />
+                    Tracking Now
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-text">
+                    {selectedAmbulance.id} · {selectedAmbulance.label}
+                  </div>
+                  <div className="mt-1 text-xs text-text-dim">
+                    {selectedAmbulance.lat.toFixed(4)}, {selectedAmbulance.lng.toFixed(4)}
+                  </div>
+                  <div className="mt-2 text-xs leading-5 text-text-dim">
+                    {selectedAmbulance.status}
+                  </div>
                 </div>
-                <div className="mt-2 text-sm font-semibold text-text">
-                  {selectedAmbulance.id} · {selectedAmbulance.label}
+              )}
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col bg-bg p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
+                    Ambulance Fleet
+                  </div>
+                  <div className="mt-1 text-sm text-text-dim">Select any unit to follow it on the map.</div>
                 </div>
-                <div className="mt-1 text-xs text-text-dim">
-                  {selectedAmbulance.lat.toFixed(4)}, {selectedAmbulance.lng.toFixed(4)}
+                <div className="rounded-sm border border-border bg-bg2 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-text">
+                  {trackedAmbulances.length} Live
                 </div>
               </div>
-            )}
+
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="space-y-2">
+                  {trackedAmbulances.map((ambulance) => {
+                    const selected = ambulance.id === selectedAmbulanceId
+
+                    return (
+                      <button
+                        key={ambulance.id}
+                        onClick={() => setSelectedAmbulanceId(ambulance.id)}
+                        className={`w-full rounded-sm border px-3 py-3 text-left transition-colors ${
+                          selected
+                            ? "border-red/40 bg-red/10"
+                            : "border-border bg-bg2 hover:border-border2 hover:bg-bg3"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-text">
+                              <Ambulance className={`h-4 w-4 ${ambulance.isLive ? "text-red" : "text-cyan"}`} />
+                              <span>{ambulance.id}</span>
+                              {ambulance.isLive && (
+                                <span className="rounded-full bg-red/15 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-red">
+                                  Live
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-xs text-text-dim">{ambulance.label}</div>
+                            <div className="mt-2 text-xs text-text">{ambulance.status}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs font-mono uppercase tracking-[0.16em] text-text-muted">Speed</div>
+                            <div className="mt-1 font-mono text-sm text-text">{Math.round(ambulance.speed)} km/h</div>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
