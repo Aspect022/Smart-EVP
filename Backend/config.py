@@ -17,8 +17,8 @@ class Config:
     # Central Bengaluru demo target
     TARGET_LAT = 12.9716
     TARGET_LNG = 77.5946
-    PREEMPTION_RADIUS_M = 850  # Trigger signal preemption earlier for demo visibility
-    RESET_RADIUS_M = 1025      # Reset only after the ambulance clearly clears the corridor
+    PREEMPTION_RADIUS_M = 1300  # Trigger green well before the junction for demo visibility
+    RESET_RADIUS_M = 1500       # Reset only after the ambulance clearly clears the corridor
     
     # ── Directories ────────────────────────────────────────────────
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))

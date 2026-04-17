@@ -276,6 +276,7 @@ export function AdminView({
                 state={signal}
                 latency={latency}
                 preemptionCount={preemptionCount}
+                caseStatus={caseStatus}
               />
             </div>
 

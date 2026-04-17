@@ -4,6 +4,7 @@ interface SignalPanelProps {
   state: "RED" | "AMBER" | "GREEN"
   latency: number | null
   preemptionCount: number
+  caseStatus?: string
 }
 
 const stateConfig = {
@@ -27,8 +28,12 @@ const stateConfig = {
   },
 }
 
-export function SignalPanel({ state, latency, preemptionCount }: SignalPanelProps) {
+export function SignalPanel({ state, latency, preemptionCount, caseStatus }: SignalPanelProps) {
   const config = stateConfig[state]
+  const loraActive =
+    caseStatus === "PATIENT_PICKED" ||
+    caseStatus === "EN_ROUTE_HOSPITAL" ||
+    caseStatus === "ARRIVING"
 
   return (
     <div className="bg-bg2 p-3.5">
@@ -43,8 +48,12 @@ export function SignalPanel({ state, latency, preemptionCount }: SignalPanelProp
         <div className="mb-1 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
           Current state
         </div>
-        <div className={`text-xl font-semibold ${config.color}`}>{state}</div>
-        <p className="mt-1 text-xs text-text-dim">{config.label}</p>
+        <div className={`text-xl font-semibold ${loraActive ? "text-green" : config.color}`}>
+          {loraActive ? "LORA ACTIVATED" : state}
+        </div>
+        <p className="mt-1 text-xs text-text-dim">
+          {loraActive ? "Long-range corridor sync is active for hospital transport." : config.label}
+        </p>
       </div>
 
       <div className="mt-3 rounded-sm border border-border bg-bg p-2.5">
