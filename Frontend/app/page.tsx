@@ -11,7 +11,7 @@ import { Footer } from "@/components/landing/footer"
 import { DemoLauncher } from "@/components/landing/demo-launcher"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Laptop } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 import { Suspense } from "react"
 
@@ -65,9 +65,10 @@ function LandingContent() {
           </div>
           <Link
             href="/?demo=1"
-            className="flex items-center gap-2 px-4 py-2 bg-red border-2 border-red text-white hover:bg-red/80 rounded-sm font-sans font-bold uppercase tracking-widest transition-all shadow-md hover:shadow-lg text-xs"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-bg2 px-4 py-2 text-xs font-semibold tracking-[0.14em] text-text transition-all hover:border-border2 hover:bg-bg3"
           >
-            <Laptop className="w-4 h-4" /> 3-Laptop Demo Setup
+            Dashboard
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       </nav>

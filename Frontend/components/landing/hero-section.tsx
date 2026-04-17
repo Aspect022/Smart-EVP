@@ -16,6 +16,10 @@ function seededValue(index: number, salt: number) {
   return raw - Math.floor(raw)
 }
 
+function fixed(value: number, digits = 4) {
+  return Number(value.toFixed(digits))
+}
+
 // Rain drop component - diagonal rain falling from right to left (wind blowing left)
 function RainDrop({ delay, duration, left, height, opacity }: { 
   delay: number
@@ -58,11 +62,11 @@ export function HeroSection({ ambulanceData, onAnimationComplete }: HeroSectionP
   const rainDrops = useMemo(() => {
     return Array.from({ length: 80 }, (_, i) => ({
       id: i,
-      delay: seededValue(i, 1) * 4,
-      duration: 2 + seededValue(i, 2) * 2, // slower: 2s to 4s
-      left: -10 + seededValue(i, 3) * 120, // spread for diagonal entry from right
-      height: 30 + seededValue(i, 4) * 50, // subtle streaks: 30-80px
-      opacity: 0.15 + seededValue(i, 5) * 0.25, // softer opacity
+      delay: fixed(seededValue(i, 1) * 4),
+      duration: fixed(2 + seededValue(i, 2) * 2), // slower: 2s to 4s
+      left: fixed(-10 + seededValue(i, 3) * 120), // spread for diagonal entry from right
+      height: fixed(30 + seededValue(i, 4) * 50), // subtle streaks: 30-80px
+      opacity: fixed(0.15 + seededValue(i, 5) * 0.25),
     }))
   }, [])
 
