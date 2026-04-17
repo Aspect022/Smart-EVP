@@ -1,1 +1,45 @@
+# Local reference material
 /Reference
+
+# Environment variables and secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python caches and virtual environments
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+**/env/
+
+# Backend runtime data
+Backend/data/
+Backend/audio/
+
+# Node / Next.js / Expo
+**/node_modules/
+Frontend/.next/
+Frontend/out/
+Frontend/.turbo/
+Mobile/.expo/
+Mobile/.expo-shared/
+Mobile/dist/
+Mobile/web-build/
+
+# Logs
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
