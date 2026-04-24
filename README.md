@@ -250,7 +250,7 @@ Open:
 cd D:\Projects\SmartEVP+\Mobile
 npm install
 Copy-Item .env.example .env
-$env:EXPO_PUBLIC_BACKEND_URL="http://<YOUR_LAPTOP_IP>:8080"
+$env:EXPO_PUBLIC_BACKEND_URL="http://<YOUR_LAPTOP_IP>:8080"10.93.229.237
 npx expo start -c
 ```
 

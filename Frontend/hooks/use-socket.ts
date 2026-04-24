@@ -5,6 +5,44 @@ import { getSocket, getBackendUrl } from "@/lib/socket";
 
 export type CaseStatus = "CALL_RECEIVED" | "DISPATCHED" | "EN_ROUTE_PATIENT" | "PATIENT_PICKED" | "EN_ROUTE_HOSPITAL" | "ARRIVING";
 
+export type RlDecision = {
+  trigger_distance_m: number;
+  green_duration_s: number;
+  traffic_density: number;
+  ambulance_speed_kmh: number;
+  mode: string;
+  model: string;
+  inference_ms: number;
+  fixed_rule: { trigger_distance_m: number; green_duration_s: number };
+  efficiency_gain_pct: number;
+  trigger_delta_pct: number;
+  green_delta_pct: number;
+};
+
+export type Hospital = {
+  id: string;
+  name: string;
+  short_name: string;
+  lat: number;
+  lng: number;
+  specialties: string[];
+  type: string;
+  beds_icu: number;
+  distance_km?: number;
+  score?: number;
+  reasoning?: string;
+  tag?: string;
+};
+
+export type HospitalRecommendation = {
+  recommended: Hospital | null;
+  alternatives: Hospital[];
+  all_ranked: Hospital[];
+  nearby_count: number;
+  ai_model_used: string;
+  ai_reasoning: string;
+};
+
 // Default state structure
 export type AppState = {
   connected: boolean;
@@ -18,6 +56,10 @@ export type AppState = {
   distance: number | null;
   etaSeconds: number | null;
   preemptionCount: number;
+  rlDecision: RlDecision | null;
+  trafficDensity: number;
+  hospitalRecommendation: HospitalRecommendation | null;
+  selectedHospital: Hospital | null;
 };
 
 const defaultState: AppState = {
@@ -32,6 +74,10 @@ const defaultState: AppState = {
   distance: null,
   etaSeconds: null,
   preemptionCount: 0,
+  rlDecision: null,
+  trafficDensity: 0.5,
+  hospitalRecommendation: null,
+  selectedHospital: null,
 };
 
 function normalizeSnapshot(snapshot: any): Partial<AppState> {
@@ -47,6 +93,10 @@ function normalizeSnapshot(snapshot: any): Partial<AppState> {
     distance: snapshot?.distance ?? null,
     etaSeconds: snapshot?.etaSeconds ?? snapshot?.eta_seconds ?? null,
     preemptionCount: snapshot?.preemptionCount ?? 0,
+    rlDecision: snapshot?.rl_decision ?? null,
+    trafficDensity: snapshot?.traffic_density ?? 0.5,
+    hospitalRecommendation: snapshot?.hospital_recommendation ?? null,
+    selectedHospital: snapshot?.selected_hospital ?? null,
   };
 }
 
@@ -150,10 +200,24 @@ export function useSocket() {
     const onTranscript = (data: { text: string }) => setState((prev) => ({ ...prev, transcript: data.text }));
     const onMedicalBrief = (brief: any) => {
       setState((prev) => ({ ...prev, brief }));
-      addLogEntry("MEDICAL_BRIEF", "Gemma 4 Edge AI brief generated");
+      addLogEntry("MEDICAL_BRIEF", "Gemma Edge AI brief generated");
+    };
+    const onRlDecision = (data: RlDecision) => {
+      setState((prev) => ({ ...prev, rlDecision: data, trafficDensity: data.traffic_density }));
+    };
+    const onHospitalRecommendation = (data: HospitalRecommendation) => {
+      setState((prev) => ({
+        ...prev,
+        hospitalRecommendation: data,
+        selectedHospital: data.recommended ?? prev.selectedHospital,
+      }));
+      addLogEntry("HOSPITAL", `AI selected: ${data.recommended?.short_name ?? 'unknown'} (${data.ai_model_used})`);
+    };
+    const onHospitalSelected = (hospital: Hospital) => {
+      setState((prev) => ({ ...prev, selectedHospital: hospital }));
+      addLogEntry("HOSPITAL_OVERRIDE", `Driver selected: ${hospital.short_name ?? hospital.name}`);
     };
 
-    // Register all handlers
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("connect_error", onConnectError);
@@ -168,6 +232,9 @@ export function useSocket() {
     socket.on("signal_update", onSignalUpdate);
     socket.on("transcript_update", onTranscript);
     socket.on("medical_brief", onMedicalBrief);
+    socket.on("rl_decision", onRlDecision);
+    socket.on("hospital_recommendation", onHospitalRecommendation);
+    socket.on("hospital_selected", onHospitalSelected);
 
     return () => {
       socket.off("connect", onConnect);
@@ -184,6 +251,9 @@ export function useSocket() {
       socket.off("signal_update", onSignalUpdate);
       socket.off("transcript_update", onTranscript);
       socket.off("medical_brief", onMedicalBrief);
+      socket.off("rl_decision", onRlDecision);
+      socket.off("hospital_recommendation", onHospitalRecommendation);
+      socket.off("hospital_selected", onHospitalSelected);
       socket.disconnect();
     };
   }, [addLogEntry]);
@@ -196,6 +266,28 @@ export function useSocket() {
 
     return () => window.clearInterval(timer);
   }, [refreshSnapshot]);
+
+  // Emit traffic density to backend RL engine via Socket.IO
+  const setTrafficDensity = useCallback((density: number) => {
+    const socket = getSocket();
+    if (socket?.connected) {
+      socket.emit("rl_set_density", { density });
+    }
+    setState((prev) => ({ ...prev, trafficDensity: density }));
+  }, []);
+
+  // Driver hospital override
+  const selectHospital = useCallback(async (hospitalId: string, hospitalName?: string) => {
+    try {
+      await fetch(`${getBackendUrl()}/api/hospital/select`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hospital_id: hospitalId, name: hospitalName }),
+      });
+    } catch (e) {
+      console.error("Failed to select hospital", e);
+    }
+  }, []);
 
   // Method to request manual reset via API
   const resetDemo = useCallback(async () => {
@@ -210,6 +302,8 @@ export function useSocket() {
     ...state,
     auditLog,
     addLogEntry,
-    resetDemo
+    resetDemo,
+    setTrafficDensity,
+    selectHospital,
   };
 }

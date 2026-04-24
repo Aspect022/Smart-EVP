@@ -1,4 +1,6 @@
 import { Platform } from "react-native";
+
+import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 
@@ -43,6 +45,13 @@ export async function registerForPushNotificationsAsync() {
     return null;
   }
 
+  // Expo Go no longer supports Android remote push notifications
+  // the same way a development build does. Skip remote token
+  // registration there, but keep local notification support alive.
+  if (Constants.appOwnership === "expo") {
+    return null;
+  }
+
   try {
     const token = await Notifications.getExpoPushTokenAsync();
     return token.data;
@@ -52,14 +61,18 @@ export async function registerForPushNotificationsAsync() {
 }
 
 export async function sendLocalDispatchNotification(caseId: string, severity: string, location: string) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: `${severity} dispatch incoming`,
-      body: `Case ${caseId} · ${location}`,
-      sound: "default",
-      priority: Notifications.AndroidNotificationPriority.MAX,
-      data: { caseId },
-    },
-    trigger: null,
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `${severity} dispatch incoming`,
+        body: `Case ${caseId} · ${location}`,
+        sound: "default",
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        data: { caseId },
+      },
+      trigger: null,
+    });
+  } catch {
+    // Local notification issues should never break app startup in Expo Go.
+  }
 }

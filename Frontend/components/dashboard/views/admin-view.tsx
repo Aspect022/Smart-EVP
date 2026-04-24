@@ -13,6 +13,8 @@ import {
 
 import { MapPanel, type TrackedAmbulance } from "@/components/dashboard/map-panel"
 import { SignalPanel } from "@/components/dashboard/signal-panel"
+import { RlPanel } from "@/components/dashboard/rl-panel"
+import type { RlDecision } from "@/hooks/use-socket"
 
 interface AdminViewProps {
   gps: any
@@ -27,6 +29,10 @@ interface AdminViewProps {
   preemptionCount: number
   intersectionCoords: { lat: number; lng: number }
   handleStartDemo: () => Promise<void>
+  // RL props
+  rlDecision: RlDecision | null
+  trafficDensity: number
+  onDensityChange: (density: number) => void
 }
 
 export function AdminView({
@@ -42,6 +48,9 @@ export function AdminView({
   preemptionCount,
   intersectionCoords,
   handleStartDemo,
+  rlDecision,
+  trafficDensity,
+  onDensityChange,
 }: AdminViewProps) {
   const [audioRunning, setAudioRunning] = useState(false)
   const [revealedCount, setRevealedCount] = useState(0)
@@ -277,6 +286,16 @@ export function AdminView({
                 latency={latency}
                 preemptionCount={preemptionCount}
                 caseStatus={caseStatus}
+              />
+            </div>
+
+            {/* RL Panel below signal */}
+            <div className="shrink-0 border-b border-border">
+              <RlPanel
+                rlDecision={rlDecision}
+                trafficDensity={trafficDensity}
+                onDensityChange={onDensityChange}
+                connected={connected}
               />
             </div>
 

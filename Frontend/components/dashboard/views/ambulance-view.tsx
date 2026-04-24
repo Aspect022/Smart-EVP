@@ -1,12 +1,15 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { CheckCircle, Clock, Navigation, Route, ShieldCheck } from "lucide-react"
+import { useMemo } from "react"
+import { CheckCircle, Navigation } from "lucide-react"
 
-import type { CaseStatus } from "@/hooks/use-socket"
+import type { CaseStatus, Hospital, HospitalRecommendation } from "@/hooks/use-socket"
 import { MapPanel } from "@/components/dashboard/map-panel"
-
-import { AmbulanceAudioPanel } from "./ambulance-audio-panel"
+import { CorridorBar } from "@/components/ambulance/corridor-bar"
+import { CasePanel } from "@/components/ambulance/case-panel"
+import { TranscriptPanel } from "@/components/ambulance/transcript-panel"
+import { CompactBrief } from "@/components/ambulance/compact-brief"
+import { getBackendUrl } from "@/lib/socket"
 
 interface AmbulanceViewProps {
   gps: any
@@ -17,13 +20,12 @@ interface AmbulanceViewProps {
   caseStatus: CaseStatus
   etaSeconds: number | null
   activeCase: any | null
-}
-
-function formatEta(seconds: number | null) {
-  if (seconds === null || seconds <= 0) return "--:--"
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, "0")}`
+  transcript: string
+  brief: any | null
+  selectedHospital: Hospital | null
+  hospitalRecommendation: HospitalRecommendation | null
+  rlDecision: any | null
+  onSelectHospital: (id: string, name: string) => void
 }
 
 export function AmbulanceView({
@@ -35,12 +37,19 @@ export function AmbulanceView({
   caseStatus,
   etaSeconds,
   activeCase,
+  transcript,
+  brief,
+  selectedHospital,
+  hospitalRecommendation,
+  rlDecision,
+  onSelectHospital,
 }: AmbulanceViewProps) {
+
   const updateStatus = async (status: CaseStatus, eta?: number) => {
     try {
       const payload: any = { status }
       if (eta !== undefined) payload.etaSeconds = eta
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}/api/case/status`, {
+      await fetch(`${getBackendUrl()}/api/case/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -50,59 +59,23 @@ export function AmbulanceView({
     }
   }
 
-  // Fallback ETA from distance when backend ETA is unavailable.
   const derivedEta = useMemo(() => {
     if (etaSeconds !== null && etaSeconds > 0) return etaSeconds
     if (distance !== null && distance > 0) {
-      const avgMetersPerSecond = 10
-      return Math.max(30, Math.floor(distance / avgMetersPerSecond))
+      return Math.max(30, Math.floor(distance / 10))
     }
     return null
   }, [distance, etaSeconds])
 
-  const routeSummary = useMemo(() => {
-    if (caseStatus === "EN_ROUTE_HOSPITAL" || caseStatus === "ARRIVING") {
-      return "Patient Transport"
-    }
-    if (caseStatus === "PATIENT_PICKED") return "Patient Onboard"
-    if (caseStatus === "DISPATCHED" || caseStatus === "EN_ROUTE_PATIENT") return "Approaching Pickup"
-    return "Standby"
-  }, [caseStatus])
+  const triggerDistance = rlDecision?.trigger_distance_m ?? 500
 
   return (
-    <div className="flex h-full flex-1 overflow-hidden bg-bg">
-      <div className="flex min-w-0 flex-[1.9] flex-col">
-        <div className="grid gap-3 border-b border-border bg-bg px-5 py-4 md:grid-cols-[1.4fr_0.8fr_0.8fr]">
-          <div className="rounded-sm border border-border bg-bg2 px-4 py-3">
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-              <Route className="h-3.5 w-3.5 text-cyan" />
-              Route Status
-            </div>
-            <div className="font-mono text-base font-semibold uppercase tracking-[0.1em] text-text">
-              {routeSummary}
-            </div>
-          </div>
+    <div className="flex h-full flex-col overflow-hidden bg-bg">
 
-          <div className="rounded-sm border border-border bg-bg2 px-3 py-3">
-            <div className="mb-1 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-              <Clock className="h-3.5 w-3.5 text-amber" />
-              ETA
-            </div>
-            <div className="font-mono text-xl font-semibold text-text">{formatEta(derivedEta)}</div>
-          </div>
-
-          <div className="rounded-sm border border-border bg-bg2 px-3 py-3">
-            <div className="mb-1 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-              <ShieldCheck className="h-3.5 w-3.5 text-green" />
-              Link / Signal
-            </div>
-            <div className="font-mono text-sm text-text">
-              {connected ? "LIVE" : "OFFLINE"} · {signal}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 p-3">
+      {/* ── Row 1: Map (55%) + Case Panel (45%) ────────────────────── */}
+      <div className="flex min-h-0" style={{ flex: "0 0 55%" }}>
+        {/* Map */}
+        <div className="flex-1 min-w-0">
           <MapPanel
             gpsData={gps}
             signalState={signal}
@@ -112,39 +85,79 @@ export function AmbulanceView({
           />
         </div>
 
-        <div className="flex min-h-24 flex-wrap items-center gap-3 border-t border-border bg-bg px-5 py-4">
-          {caseStatus !== "EN_ROUTE_HOSPITAL" && caseStatus !== "ARRIVING" && (
-            <button
-              onClick={() => updateStatus("PATIENT_PICKED", 180)}
-              className="inline-flex items-center gap-2 rounded-sm border border-amber/40 bg-amber/10 px-5 py-2.5 text-xs font-mono uppercase tracking-[0.18em] text-amber transition-colors hover:bg-amber/15"
-            >
-              <CheckCircle className="h-4 w-4" />
-              Patient Picked
-            </button>
-          )}
-
-          {(caseStatus === "PATIENT_PICKED" || caseStatus === "EN_ROUTE_HOSPITAL") && (
-            <button
-              onClick={() => updateStatus("EN_ROUTE_HOSPITAL", 320)}
-              className="inline-flex items-center gap-2 rounded-sm border border-green/40 bg-green/10 px-5 py-2.5 text-xs font-mono uppercase tracking-[0.18em] text-green transition-colors hover:bg-green/15"
-            >
-              <Navigation className="h-4 w-4" />
-              To Hospital
-            </button>
-          )}
-
-          {caseStatus === "EN_ROUTE_HOSPITAL" && distance !== null && distance < 2000 && (
-            <button
-              onClick={() => updateStatus("ARRIVING", 60)}
-              className="inline-flex items-center gap-2 rounded-sm border border-red/40 bg-red/10 px-5 py-2.5 text-xs font-mono uppercase tracking-[0.18em] text-red transition-colors hover:bg-red/15"
-            >
-              Final Approach
-            </button>
-          )}
+        {/* Case Panel */}
+        <div className="w-[340px] shrink-0 border-l border-border">
+          <CasePanel
+            activeCase={activeCase}
+            caseStatus={caseStatus}
+            etaSeconds={derivedEta}
+            selectedHospital={selectedHospital}
+            hospitalRecommendation={hospitalRecommendation}
+            onSelectHospital={onSelectHospital}
+          />
         </div>
       </div>
 
-      <AmbulanceAudioPanel />
+      {/* ── Row 2: Signal Corridor Bar ──────────────────────────────── */}
+      <div className="shrink-0">
+        <CorridorBar
+          signal={signal}
+          distance={distance}
+          triggerDistance={triggerDistance}
+        />
+      </div>
+
+      {/* ── Row 3: Transcript + Compact Brief ───────────────────────── */}
+      <div className="flex min-h-0 flex-1 border-t border-border">
+        <div className="flex-1 min-w-0">
+          <TranscriptPanel transcript={transcript} />
+        </div>
+        <div className="w-[320px] shrink-0 border-l border-border">
+          <CompactBrief brief={brief} />
+        </div>
+      </div>
+
+      {/* ── Row 4: Status Action Buttons ────────────────────────────── */}
+      <div className="shrink-0 flex items-center gap-3 border-t border-border bg-bg px-5 py-3">
+        {caseStatus !== "EN_ROUTE_HOSPITAL" && caseStatus !== "ARRIVING" && activeCase && (
+          <button
+            onClick={() => updateStatus("PATIENT_PICKED", 180)}
+            className="inline-flex items-center gap-2 border border-amber/40 bg-amber/10 px-5 py-2 text-xs font-mono uppercase tracking-widest text-amber-400 transition-colors hover:bg-amber/15"
+          >
+            <CheckCircle className="h-4 w-4" />
+            Patient Picked
+          </button>
+        )}
+
+        {(caseStatus === "PATIENT_PICKED" || caseStatus === "EN_ROUTE_HOSPITAL") && (
+          <button
+            onClick={() => updateStatus("EN_ROUTE_HOSPITAL", 320)}
+            className="inline-flex items-center gap-2 border border-green/40 bg-green/10 px-5 py-2 text-xs font-mono uppercase tracking-widest text-green transition-colors hover:bg-green/15"
+          >
+            <Navigation className="h-4 w-4" />
+            En Route Hospital
+          </button>
+        )}
+
+        {caseStatus === "EN_ROUTE_HOSPITAL" && distance !== null && distance < 2000 && (
+          <button
+            onClick={() => updateStatus("ARRIVING", 60)}
+            className="inline-flex items-center gap-2 border border-red/40 bg-red/10 px-5 py-2 text-xs font-mono uppercase tracking-widest text-red transition-colors hover:bg-red/15"
+          >
+            Final Approach
+          </button>
+        )}
+
+        {/* RL info chip */}
+        {rlDecision && (
+          <div className="ml-auto text-right">
+            <div className="text-[9px] font-mono text-text-muted">RL Threshold</div>
+            <div className="text-xs font-mono text-cyan">
+              {rlDecision.trigger_distance_m}m · {rlDecision.green_duration_s}s green
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

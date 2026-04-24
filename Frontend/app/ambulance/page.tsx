@@ -17,6 +17,12 @@ function AmbulanceConsoleContent() {
     case: activeCase,
     caseStatus,
     etaSeconds,
+    transcript,
+    brief,
+    selectedHospital,
+    hospitalRecommendation,
+    rlDecision,
+    selectHospital,
   } = useSocket()
 
   return (
@@ -36,6 +42,12 @@ function AmbulanceConsoleContent() {
           caseStatus={caseStatus}
           etaSeconds={etaSeconds}
           activeCase={activeCase}
+          transcript={transcript}
+          brief={brief}
+          selectedHospital={selectedHospital}
+          hospitalRecommendation={hospitalRecommendation}
+          rlDecision={rlDecision}
+          onSelectHospital={selectHospital}
         />
       </main>
     </div>

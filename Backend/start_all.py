@@ -41,21 +41,24 @@ if __name__ == "__main__":
     processes = []
     try:
         # Start the individual microservices
-        processes.append(start_process("LED Controller", "led_controller.py"))
-        processes.append(start_process("GPS Processor", "gps_processor.py"))
+        processes.append(start_process("LED Controller",  "led_controller.py"))
+        processes.append(start_process("GPS Processor",   "gps_processor.py"))
+        processes.append(start_process("RL Inference",    "rl_inference.py"))
         processes.append(start_process("Audio Processor", "audio_processor.py"))
         
-        # Give them a second to connect to MQTT
-        time.sleep(1)
+        # Give them a moment to connect to MQTT
+        time.sleep(1.5)
         
         # Start the main Flask app
         processes.append(start_process("Flask Server", "app.py"))
         
         print("\n[SUCCESS] All services started. Press Ctrl+C to stop.")
-        print(f"  Backend API  : http://localhost:8080")
-        print(f"  Health check : http://localhost:8080/api/health")
-        print(f"  Demo trigger : POST http://localhost:8080/demo/trigger")
-        print(f"  GPS inject   : POST http://localhost:8080/gps\n")
+        print(f"  Backend API   : http://localhost:8080")
+        print(f"  Health check  : http://localhost:8080/api/health")
+        print(f"  Demo trigger  : POST http://localhost:8080/demo/trigger")
+        print(f"  Demo full     : POST http://localhost:8080/demo/full-flow")
+        print(f"  GPS inject    : POST http://localhost:8080/gps")
+        print(f"  Hospital sel  : POST http://localhost:8080/api/hospital/select\n")
         
         # Keep main thread alive
         while True:

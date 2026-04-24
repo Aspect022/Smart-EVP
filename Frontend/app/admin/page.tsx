@@ -22,6 +22,9 @@ function AdminConsoleContent() {
     transcript,
     auditLog,
     preemptionCount,
+    rlDecision,
+    trafficDensity,
+    setTrafficDensity,
   } = useSocket()
 
   const handleStartDemo = async () => {
@@ -62,6 +65,9 @@ function AdminConsoleContent() {
           preemptionCount={preemptionCount}
           intersectionCoords={INTERSECTION_COORDS}
           handleStartDemo={handleStartDemo}
+          rlDecision={rlDecision}
+          trafficDensity={trafficDensity}
+          onDensityChange={setTrafficDensity}
         />
       </main>
     </div>
