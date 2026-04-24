@@ -1,0 +1,74 @@
+Add final polish to SmartEVP+ Driver app to make it stand out.
+
+=== 1. CUSTOM LOADING STATES ===
+Create src/components/SkeletonLoader.tsx
+Animated placeholder for content loading. Shimmer effect that runs left-to-right using a linear gradient animation. Used on home screen while first poll completes.
+
+=== 2. TOAST NOTIFICATIONS ===
+Create src/components/Toast.tsx
+A system-wide toast that appears at the top of the screen (below status bar).
+Types: success (green), error (red), info (cyan), warning (amber)
+Each has: colored left border, icon, message text, auto-dismiss after 3 seconds
+Slides down from top, then slides back up. Uses reanimated.
+Create a useToast hook and ToastProvider. Add ToastProvider to app root.
+
+=== 3. HAPTIC PATTERNS ===
+Create src/utils/haptics.ts:
+  dispatchAlert(): fires Warning + 300ms pause + Warning (double-pulse for alert)
+  signalGreen(): fires Success + 200ms + ImpactLight (two-stage for confirmation)
+  acceptPress(): fires ImpactMedium (button feel)
+  error(): fires Error
+
+=== 4. SCREEN TRANSITIONS ===
+Configure expo-router with custom transitions:
+- Login → Home: fade
+- Home → Alert: instant (emergency feel — no animation delay)
+- Alert → ActiveCase: slide up from bottom
+- ActiveCase → Profile: slide from right
+
+=== 5. DEMO MODE TOGGLE ===
+Add a hidden developer panel accessible by tapping the version number in Profile 5 times.
+Shows:
+  - Current backend IP (editable text field)
+  - "Send Test Dispatch" button → calls /demo/trigger
+  - "Force Signal GREEN" toggle
+  - "Clear State" button
+  - "Reset to Login" button
+This is essential for the hackathon demo when things go wrong.
+
+=== 6. OFFLINE STATE ===
+When isConnected is false for more than 5 seconds:
+- Show a persistent amber banner at the top: "⚠ Reconnecting to SmartEVP+..."
+- The banner animates in from the top
+- Dismisses automatically when reconnected
+- During offline: poll continues but shows stale data with a dim opacity overlay on the status card
+
+=== 7. CASE COMPLETE FLOW ===
+Create src/app/case-complete.tsx
+Simple screen after driver marks "On Scene":
+- Large green checkmark (animated: draws itself using stroke animation)
+- "Case #{id} Complete" in displayL white
+- Stats: Response time, Distance traveled, Case duration
+- "RETURN TO STANDBY" button → navigate to /home and reset all case state
+
+=== 8. APP ICON AND SPLASH ===
+Update app.json:
+- App name: "SmartEVP+"
+- Background color: #050810
+- Splash screen: dark background, centered logo
+
+=== 9. PERFORMANCE ===
+- All lists use FlatList not ScrollView with map
+- All images (if any) use expo-image
+- Heavy animations run on UI thread using useNativeDriver: true
+- Add React.memo to MetricCard, GlassCard, StatusBadge
+
+=== 10. FINAL CHECK ===
+Make sure:
+- No white backgrounds anywhere in the app
+- All text is readable (contrast ratio > 4.5:1)
+- Every screen has SafeAreaView
+- KeyboardAvoidingView on any screen with text input
+- All TouchableOpacity have activeOpacity 0.7 or 0.8
+- No console errors
+- TypeScript strict mode has no errors

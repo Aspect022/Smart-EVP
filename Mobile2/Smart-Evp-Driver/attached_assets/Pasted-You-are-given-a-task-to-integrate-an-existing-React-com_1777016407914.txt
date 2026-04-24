@@ -1,0 +1,326 @@
+You are given a task to integrate an existing React component in the codebase
+
+~~~/README.md
+# MagnificationDock
+
+A premium macOS-inspired dock component with fluid magnification effects, spring physics, and tooltips.
+
+## Dependencies
+
+- `framer-motion`: ^11.0.0
+- `lucide-react`: Latest
+
+## Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `items` | `DockItemData[]` | **Required** | Array of items to display in the dock |
+| `className` | `string` | `""` | Additional CSS classes for the dock container |
+| `distance` | `number` | `200` | The distance from the mouse where magnification starts |
+| `panelHeight` | `number` | `64` | The base height of the dock panel |
+| `baseItemSize` | `number` | `50` | The base size (width/height) of each dock item |
+| `magnification` | `number` | `70` | The maximum size of an item when magnified |
+| `spring` | `SpringOptions` | `{ mass: 0.1, stiffness: 150, damping: 12 }` | Spring physics configuration |
+
+### DockItemData
+
+```typescript
+type DockItemData = {
+  icon: React.ReactNode;
+  label: React.ReactNode;
+  onClick: () => void;
+  className?: string;
+};
+```
+
+## Usage
+
+```tsx
+import { MagnificationDock } from '@/sd-components/92e48665-ebf7-4173-98d2-a1d488decf45';
+import { Home, Search, Settings } from 'lucide-react';
+
+const items = [
+  { icon: <Home size={22} />, label: 'Home', onClick: () => alert('Home!') },
+  { icon: <Search size={22} />, label: 'Search', onClick: () => alert('Search!') },
+  { icon: <Settings size={22} />, label: 'Settings', onClick: () => alert('Settings!') },
+];
+
+export default function MyComponent() {
+  return (
+    <MagnificationDock 
+      items={items}
+      panelHeight={68}
+      baseItemSize={50}
+      magnification={80}
+    />
+  );
+}
+```
+~~~
+
+~~~/src/App.tsx
+/**
+ * Demo app for MagnificationDock
+ */
+
+import React from 'react';
+import { Home, Search, Settings, User, Bell, Mail, Camera, Heart } from 'lucide-react';
+import { MagnificationDock } from './Component';
+
+export default function App() {
+  const items = [
+    { icon: <Home size={22} />, label: 'Home', onClick: () => console.log('Home') },
+    { icon: <Search size={22} />, label: 'Search', onClick: () => console.log('Search') },
+    { icon: <User size={22} />, label: 'Profile', onClick: () => console.log('Profile') },
+    { icon: <Bell size={22} />, label: 'Notifications', onClick: () => console.log('Notifications') },
+    { icon: <Mail size={22} />, label: 'Messages', onClick: () => console.log('Messages') },
+    { icon: <Camera size={22} />, label: 'Capture', onClick: () => console.log('Capture') },
+    { icon: <Heart size={22} />, label: 'Likes', onClick: () => console.log('Likes') },
+    { icon: <Settings size={22} />, label: 'Settings', onClick: () => console.log('Settings') },
+  ];
+
+  return (
+    <div className="min-h-screen w-full bg-background flex flex-col items-center justify-center p-20">
+      <h1 className="text-foreground text-2xl font-medium mb-12 opacity-50">Magnification Dock</h1>
+      
+      <div className="relative w-full max-w-3xl flex justify-center">
+        <MagnificationDock 
+          items={items}
+          panelHeight={68}
+          baseItemSize={50}
+          magnification={80}
+        />
+      </div>
+
+      <button 
+        onClick={() => window.location.reload()}
+        className="mt-24 px-6 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:opacity-90 transition-opacity"
+      >
+        Reply Animation
+      </button>
+    </div>
+  );
+}
+~~~
+
+~~~/package.json
+{
+  "name": "magnification-dock",
+  "description": "MacOS style magnification dock with framer-motion",
+  "dependencies": {
+    "framer-motion": "^11.0.0",
+    "lucide-react": "latest",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.3.0"
+  }
+}
+~~~
+
+~~~/src/Component.tsx
+/**
+ * MagnificationDock Component
+ * 
+ * A premium macOS-inspired dock component with fluid magnification effects, 
+ * spring physics, and tooltips. Built with Framer Motion.
+ */
+
+import {
+  motion,
+  MotionValue,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  type SpringOptions,
+  AnimatePresence
+} from 'framer-motion';
+import React, { Children, cloneElement, useEffect, useMemo, useRef, useState } from 'react';
+
+export type DockItemData = {
+  icon: React.ReactNode;
+  label: React.ReactNode;
+  onClick: () => void;
+  className?: string;
+};
+
+export type DockProps = {
+  items: DockItemData[];
+  className?: string;
+  distance?: number;
+  panelHeight?: number;
+  baseItemSize?: number;
+  dockHeight?: number;
+  magnification?: number;
+  spring?: SpringOptions;
+};
+
+type DockItemProps = {
+  className?: string;
+  children: React.ReactNode;
+  onClick?: () => void;
+  mouseX: MotionValue<number>;
+  spring: SpringOptions;
+  distance: number;
+  baseItemSize: number;
+  magnification: number;
+};
+
+function DockItem({
+  children,
+  className = '',
+  onClick,
+  mouseX,
+  spring,
+  distance,
+  magnification,
+  baseItemSize
+}: DockItemProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isHovered = useMotionValue(0);
+
+  const mouseDistance = useTransform(mouseX, val => {
+    const rect = ref.current?.getBoundingClientRect() ?? {
+      x: 0,
+      width: baseItemSize
+    };
+    return val - rect.x - baseItemSize / 2;
+  });
+
+  const targetSize = useTransform(mouseDistance, [-distance, 0, distance], [baseItemSize, magnification, baseItemSize]);
+  const size = useSpring(targetSize, spring);
+
+  return (
+    <motion.div
+      ref={ref}
+      style={{
+        width: size,
+        height: size
+      }}
+      onHoverStart={() => isHovered.set(1)}
+      onHoverEnd={() => isHovered.set(0)}
+      onFocus={() => isHovered.set(1)}
+      onBlur={() => isHovered.set(0)}
+      onClick={onClick}
+      className={`relative inline-flex items-center justify-center rounded-full bg-card border-border border shadow-lg cursor-pointer ${className}`}
+      tabIndex={0}
+      role="button"
+      aria-haspopup="true"
+    >
+      {Children.map(children, child =>
+        React.isValidElement(child)
+          ? cloneElement(child as React.ReactElement<{ isHovered?: MotionValue<number> }>, { isHovered })
+          : child
+      )}
+    </motion.div>
+  );
+}
+
+type DockLabelProps = {
+  className?: string;
+  children: React.ReactNode;
+  isHovered?: MotionValue<number>;
+};
+
+function DockLabel({ children, className = '', isHovered }: DockLabelProps) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isHovered) return;
+    const unsubscribe = isHovered.on('change', latest => {
+      setIsVisible(latest === 1);
+    });
+    return () => unsubscribe();
+  }, [isHovered]);
+
+  return (
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, y: 0 }}
+          animate={{ opacity: 1, y: -10 }}
+          exit={{ opacity: 0, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className={`${className} absolute -top-8 left-1/2 w-fit whitespace-pre rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground shadow-sm`}
+          role="tooltip"
+          style={{ x: '-50%' }}
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+type DockIconProps = {
+  className?: string;
+  children: React.ReactNode;
+  isHovered?: MotionValue<number>;
+};
+
+function DockIcon({ children, className = '' }: DockIconProps) {
+  return <div className={`flex items-center justify-center text-foreground ${className}`}>{children}</div>;
+}
+
+export function MagnificationDock({
+  items,
+  className = '',
+  spring = { mass: 0.1, stiffness: 150, damping: 12 },
+  magnification = 70,
+  distance = 200,
+  panelHeight = 64,
+  dockHeight = 256,
+  baseItemSize = 50
+}: DockProps) {
+  const mouseX = useMotionValue(Infinity);
+  const isHovered = useMotionValue(0);
+
+  const maxHeight = useMemo(() => Math.max(dockHeight, magnification + magnification / 2 + 4), [magnification]);
+  const heightRow = useTransform(isHovered, [0, 1], [panelHeight, maxHeight]);
+  const height = useSpring(heightRow, spring);
+
+  return (
+    <motion.div style={{ height, scrollbarWidth: 'none' }} className="flex max-w-full items-center justify-center">
+      <motion.div
+        onMouseMove={({ pageX }) => {
+          isHovered.set(1);
+          mouseX.set(pageX);
+        }}
+        onMouseLeave={() => {
+          isHovered.set(0);
+          mouseX.set(Infinity);
+        }}
+        className={`${className} flex items-end w-fit gap-3 rounded-3xl border-border border bg-card/50 backdrop-blur-md pb-2 px-4 shadow-xl`}
+        style={{ height: panelHeight }}
+        role="toolbar"
+        aria-label="Application dock"
+      >
+        {items.map((item, index) => (
+          <DockItem
+            key={index}
+            onClick={item.onClick}
+            className={item.className}
+            mouseX={mouseX}
+            spring={spring}
+            distance={distance}
+            magnification={magnification}
+            baseItemSize={baseItemSize}
+          >
+            <DockIcon>{item.icon}</DockIcon>
+            <DockLabel>{item.label}</DockLabel>
+          </DockItem>
+        ))}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+export default MagnificationDock;
+~~~
+
+Implementation Guidelines
+
+1. Analyze the component structure, styling, animation implementations
+2. Review the component's arguments and state
+3. Think through what is the best place to adopt this component/style into the design we are doing
+4. Then adopt the component/design to our current system
+
+Help me integrate this into my design

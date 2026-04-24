@@ -1,0 +1,70 @@
+Create the Active Case screen at src/app/active-case.tsx.
+
+This screen shows after the driver accepts dispatch. It must feel like a real navigation + dispatch hybrid screen.
+
+=== PERSISTENT HEADER ===
+Not a tab bar. A custom header: 
+- Left: "🚑 AMB-001" in headingM white + "EN ROUTE" in labelM green with LiveDot
+- Right: case ID badge in amber + elapsed time since dispatch (ticking up every second)
+- Below header: SignalStrip showing current signal state (RED or GREEN)
+
+=== SIGNAL CORRIDOR PANEL ===
+This is the most critical element on this screen. Takes up about 20% of the screen height.
+
+When RED (approaching):
+GlassCard, topBorderColor red, subtle red inner glow.
+Left: 48px circle, red fill, soft red outer glow
+Content: "INT-01 · APPROACHING" in headingL red. Below: distance from intersection (if available) in bodyM textDim.
+
+When GREEN (active):
+This triggers the full "green wave" animation:
+1. The panel's background sweeps from bottom to top with a green wave (reanimated, 600ms)
+2. The panel glows green (box shadow animation)
+3. The left circle becomes bright green with strong glow
+4. Haptics.notificationAsync(Success) fires
+5. Text: "GREEN CORRIDOR — PROCEED" in displayM green, weight 900
+6. Below: "INT-01 · Authenticated · {latency}ms · ECC-256 ✓" in labelM textMuted
+
+The transition between RED and GREEN must be animated, not instant.
+
+=== TAB NAVIGATION ===
+Custom tab bar (not expo-router tabs). Three tabs:
+- "CASE" (default active)
+- "BRIEF" (with a dot indicator when brief is available)
+- "MAP" (placeholder for future)
+
+Active tab: white text, red bottom border, 2px
+Inactive tab: textMuted text
+
+=== CASE TAB ===
+GlassCard with case details:
+- Case ID + severity badge
+- Location with map pin icon
+- Patient symptoms  
+- Dispatch time (formatted as "Dispatched 2m 34s ago", ticking)
+- EtaRing component (120px) — shows ETA in circular ring format, updates every 2 seconds by polling /api/eta
+
+Below the ETA ring: "Hospital notified · Resources pre-allocated" in labelM green when brief is available, or "Brief generating..." in labelM amber with a pulsing animation.
+
+=== BRIEF TAB ===
+"Before brief" state:
+PulsingRing in purple, small (80px), centered
+"Generating patient brief..." in bodyM textMuted
+"Gemma AI analyzing nurse audio" in labelM purple with LiveDot purple
+
+"After brief" state (slides in from right using reanimated):
+Patient brief card — styled like a real hospital patient wristband:
+- Top band: severity color (red/amber), patient basic info
+- Sections that animate in with 80ms stagger:
+  * CHIEF COMPLAINT (red section border)
+  * SUSPECTED DIAGNOSIS (amber text)
+  * VITALS grid (2x2: BP, HR, SpO2, GCS) — each in its own tiny GlassCard
+  * RESOURCES row: colored badge pills (✓ Cardiologist, ✓ Defib, etc.)
+  * MEDICATIONS + ALLERGIES
+- Bottom stamp: "● AI GENERATED · Gemma 2B · On-device" in purple labelM
+
+=== MAP TAB ===
+Simple placeholder: "Live map coming in production build" with a faint map grid SVG background.
+
+=== BOTTOM ACTION BAR ===
+Fixed at bottom. "ON SCENE — Mark Arrived" button when ambulance reaches hospital. On press: confirm dialog → navigate to a simple "Case Complete" screen → back to home.

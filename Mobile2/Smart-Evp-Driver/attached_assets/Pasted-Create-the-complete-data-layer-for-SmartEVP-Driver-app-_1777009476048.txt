@@ -1,0 +1,59 @@
+Create the complete data layer for SmartEVP+ Driver app.
+
+--- src/api/index.ts ---
+All API functions:
+
+const BASE = BACKEND_URL from config
+
+export async function getSystemState(): Promise<SystemState | null>
+  GET /api/state
+  Returns: { signal_state, active_case, medical_brief, preemption_latency_ms, connected_clients }
+  On error: return null
+
+export async function acceptCase(caseId: string, driverId: string): Promise<boolean>
+  POST /api/driver/accept
+  Body: { case_id: caseId, driver_id: driverId }
+  On success: return true
+  On error: return false
+
+export async function getETA(): Promise<{ eta_seconds: number, distance_m: number } | null>
+  GET /api/eta
+  On error: return null
+
+export async function triggerDemo(): Promise<void>
+  POST /demo/trigger (for testing without a real Twilio call)
+
+All functions: use a 4 second timeout. Log errors to console but never throw — always return null/false on failure.
+
+--- src/types/index.ts ---
+TypeScript interfaces:
+  SystemState: all backend fields
+  Case: case_id, severity, location, symptoms, ts
+  MedicalBrief: chief_complaint, age, gender, vitals (bp, hr, spo2, gcs), suspected_diagnosis, allergies, current_medications, resources_required, severity, ems_interventions, notes
+  Driver: id, name, vehicle, license
+  SignalState: 'RED' | 'GREEN'
+
+--- src/hooks/usePolling.ts ---
+Custom hook that:
+1. Accepts: onStateUpdate callback, enabled boolean
+2. Polls getSystemState every POLL_INTERVAL (2000ms) when enabled=true
+3. On each response: calls onStateUpdate with the full state
+4. Handles connection status: setIsConnected(true/false) based on whether getSystemState returns null
+5. Returns: { isConnected, lastUpdate }
+6. Uses useEffect with cleanup (clearInterval on unmount)
+7. Has exponential backoff: if 3 consecutive failures, increase interval to 5000ms. Reset on success.
+
+--- src/hooks/useSignalEffect.ts ---
+Custom hook for signal state changes:
+1. Accepts: signalState
+2. useEffect watching signalState
+3. When changes to GREEN: fire Haptics.notificationAsync(Success) + optional sound
+4. When changes to RED: no haptic (reset is silent)
+
+--- Update AppContext to use polling ---
+In AppContext, when driver is set (logged in), start the polling hook.
+On each poll response:
+  - Update activeCase if case_id changes
+  - Update signalState
+  - Update medicalBrief
+  - Update isConnected

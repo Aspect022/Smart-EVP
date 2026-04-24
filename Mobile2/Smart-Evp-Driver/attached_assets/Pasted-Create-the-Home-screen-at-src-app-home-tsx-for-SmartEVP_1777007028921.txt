@@ -1,0 +1,57 @@
+Create the Home screen at src/app/home.tsx for SmartEVP+ Driver.
+
+This is the most-seen screen. The driver sits here waiting for dispatch. It must feel alive and operational, not static.
+
+Full layout (SafeAreaView, bg #050810):
+
+=== HEADER (row, space-between) ===
+Left:
+- "Hello, {firstName}" in headingL white
+- "{vehicle} · {license}" in labelM textMuted below
+
+Right:
+- Circular profile button (44px): driver initial in cyan, cyanSoft background, cyan border
+- Small notification bell icon next to it
+
+=== STATUS CARD ===
+GlassCard with topBorderColor = green (when connected and available).
+Inside:
+- Row: LiveDot (green, 10px) + "AVAILABLE" text in displayM green + right-aligned signal strip indicator showing current signal color
+- Below: "Monitoring active · Dispatch alerts enabled" in bodyM textDim
+- Below: A thin separator then: connection status row — either "● Connected to SmartEVP+" in cyan or "○ Reconnecting..." in amber with a subtle pulsing animation on the dot
+
+The card background should have a very faint green radial glow (opacity 0.04) when status is AVAILABLE.
+
+=== SHIFT STATS ROW ===
+Three MetricCards side by side:
+- Cases Today: "3" in cyan
+- Hours on Shift: "4.5h" in amber  
+- Km Covered: "38" in purple
+
+=== LAST DISPATCH CARD ===
+GlassCard, topBorderColor amber. Eyebrow: "LAST DISPATCH"
+If no previous dispatch: "No dispatches this shift" in bodyM textMuted centered.
+If exists: show case ID, location, time elapsed.
+
+=== SYSTEM STATUS SECTION ===
+Eyebrow: "SYSTEM STATUS"
+Three small rows with icons:
+- 🛰 GPS Signal: "ACTIVE · 8 satellites" in green
+- 📡 Backend: "192.168.x.x:8080" in cyan  
+- 🔐 Auth: "ECC-256 Ready" in green
+
+=== LANGUAGE TOGGLE ===
+Horizontal row of 3 pill buttons: "EN" | "हिं" | "ಕನ್ನಡ"
+Active pill: filled with cyanSoft background, cyan border, cyan text
+Inactive: glassBorder border, textMuted text
+
+=== PROFILE LINK ===
+Bottom: "View Full Profile →" as a subtle link in textMuted
+
+=== ACTIVE CASE DETECTION ===
+Use a useEffect that watches activeCase from context. When it becomes non-null AND the current screen is home, immediately navigate to /alert using router.push. This creates the emergency takeover effect.
+
+=== POLLING ===
+Import the polling hook (to be created separately). Start polling when this screen mounts. Stop when it unmounts.
+
+The entire screen should have a very faint dot-grid pattern as a background texture (use an SVG background pattern at 2% opacity).

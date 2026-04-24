@@ -1,0 +1,49 @@
+Create a reusable component library for the SmartEVP+ driver app. These components will be used throughout every screen. All components must use the theme from src/theme/index.ts.
+
+Create the following files:
+
+--- src/components/GlassCard.tsx ---
+A card with glassmorphism effect. Props:
+- children
+- topBorderColor?: string (optional colored top border, 2px)
+- style?: ViewStyle
+- onPress?: function
+Implementation: dark background (#0f1422), subtle border (rgba(255,255,255,0.07)), optional 2px top border in the provided color. Slight inner shadow. Rounded corners (radius 14). When onPress provided, use TouchableOpacity with activeOpacity 0.8.
+
+--- src/components/StatusBadge.tsx ---
+Props: label, color ('red' | 'amber' | 'cyan' | 'green' | 'purple' | 'muted')
+Small pill badge. Background is the soft variant of the color. Border is the color at 30% opacity. Text is the full color. Font: labelM style. Has a small dot on the left matching the color that pulses when color is 'green' or 'cyan'.
+
+--- src/components/LiveDot.tsx ---
+An animated pulsing dot. Props: color, size (default 8)
+Uses react-native-reanimated to pulse scale and opacity in a 2-second loop. Has a larger outer ring that fades. The inner dot is the color, the outer ring is the color at 30% opacity.
+
+--- src/components/MetricCard.tsx ---
+Props: label, value, unit?, color, icon?
+Shows a stat. The value is in displayM style in the color. Label is labelM style in textMuted. Small colored dot above the value. Used in profile/home stats grid.
+
+--- src/components/PulsingRing.tsx ---
+Props: color, size, rings (default 3), duration (default 2000)
+Creates concentric expanding rings animation using react-native-reanimated. Each ring starts at size and expands outward while fading to transparent. Rings are staggered by duration/rings milliseconds. This is used for the alert screen and waiting states.
+
+--- src/components/SignalStrip.tsx ---
+A thin full-width strip (height 3px) at the very top of a screen, under the status bar.
+Props: state ('RED' | 'GREEN' | 'IDLE')
+When IDLE: invisible
+When RED: red color, static
+When GREEN: green color, animated shimmer running left to right continuously using react-native-reanimated Animated.loop
+
+--- src/components/EtaRing.tsx ---
+A circular progress ring showing ETA countdown.
+Props: totalSeconds, remainingSeconds, size (default 120)
+Uses react-native-reanimated to animate the stroke.
+Center shows the remaining time as MM:SS in displayL style.
+Below time, shows 'ETA' in labelM textMuted.
+Ring stroke color transitions from cyan → amber → red as time decreases.
+Background track is a faint version of the current color.
+
+--- src/components/SectionLabel.tsx ---
+Props: children, color? (default textMuted)
+Renders an eyebrow label: a short horizontal line on the left, then the text in labelM style. Gap 6px between line and text.
+
+All components must be typed with TypeScript. Export all from src/components/index.ts.

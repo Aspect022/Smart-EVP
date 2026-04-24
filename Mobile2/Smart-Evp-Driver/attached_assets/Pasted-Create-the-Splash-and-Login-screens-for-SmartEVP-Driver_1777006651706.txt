@@ -1,0 +1,47 @@
+Create the Splash and Login screens for SmartEVP+ Driver app.
+
+--- src/app/index.tsx (Splash Screen) ---
+
+Design: Pure #050810 background. Centered content.
+
+Animation sequence using react-native-reanimated:
+1. On mount, the product logo fades in and scales up (0.7 → 1.0, 600ms, easing: spring)
+2. After 200ms, the tagline fades up from 10px below
+3. After 600ms, a thin red progress line animates from left edge to right edge of the screen (bottom of screen, 2px height, 1800ms)
+4. At 2200ms total, navigate to /login using router.replace
+
+Logo: "Smart" in textPrimary, "EVP+" in red (#ff3b3b). Font: displayL (32px, weight 800). Letter spacing -1.
+Below logo: "ERIS v2.0 · Driver" in labelM textMuted, tracking widest.
+Below tagline: a very subtle red radial glow behind the logo (200x200, opacity 0.15, blurRadius 40)
+
+No status bar content visible. Use expo-status-bar with style="light" and hidden=true.
+
+--- src/app/login.tsx ---
+
+Design intent: Should feel like selecting a crew member in a real dispatch system.
+
+Layout (dark bg, full screen, SafeAreaView):
+
+Top section:
+- Back chevron if navigated to (rare)
+- Eyebrow label: "01 — CREW SELECTION"  
+- Heading: "Select Your\nProfile" — displayL, white, 3 lines max
+- Subtext: "SmartEVP+ will route all dispatch alerts to your device" — bodyM, textDim
+
+Driver cards section:
+Two driver cards. Each card is a GlassCard with topBorderColor = cyan.
+
+Inside each card:
+- Left: Avatar circle (56px) with the driver's initial. Background: cyanSoft. Border: cyan at 40% opacity. Initial text: displayM cyan.
+- Middle: Driver name in headingM white. Below: vehicle ID + license in labelM textMuted. Below: a tiny badge showing "AVAILABLE" in green.
+- Right: A chevron icon (›) in textMuted.
+
+On press: animate the card (scale 0.97 briefly), set driver in context, navigate to /home using router.replace.
+
+The two drivers are hardcoded:
+  { id: 'D001', name: 'Ravi Kumar', vehicle: 'AMB-001', license: 'KA-01-AB-1234' }
+  { id: 'D002', name: 'Priya Nair', vehicle: 'AMB-002', license: 'KA-02-CD-5678' }
+
+Bottom: Small text "SmartEVP+ · Team V3 · TechnoCognition'25" in labelM textMuted, centered.
+
+Entry animation: Cards slide up from 30px below with fade, staggered by 80ms, using react-native-reanimated entering animations.

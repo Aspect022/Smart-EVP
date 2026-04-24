@@ -1,0 +1,57 @@
+Create the Driver Profile screen at src/app/profile.tsx.
+
+This screen shows the driver's stats, settings, and future features. It should feel like a professional driver dashboard.
+
+=== HEADER ===
+Back button (chevron left) + "DRIVER PROFILE" in headingL white.
+
+=== HERO SECTION ===
+Large avatar circle (88px): driver initial in 48px Syne ExtraBold, cyan colored on cyanSoft background. Strong cyan border. Below it: driver name in displayM white. Vehicle + license in labelM textMuted. A "VERIFIED DRIVER" badge in green below that.
+
+=== TODAY'S STATS ===
+SectionLabel: "TODAY'S PERFORMANCE"
+3 MetricCards in a row:
+- Dispatches: 3 (cyan)
+- Response Avg: 3m 45s (green)
+- Distance: 38 km (amber)
+
+=== CAREER STATS ===
+SectionLabel: "CAREER TOTAL"
+3 MetricCards:
+- Total Cases: 247 (cyan)
+- Km Driven: 4,890 (amber)
+- Rating: 4.9 ★ (green, yes add a star rating)
+
+=== SHIFT INFO ===
+GlassCard, topBorderColor cyan:
+Row items:
+- Shift started: 09:00 AM today
+- Hours active: 4h 32m (ticking)
+- Last dispatch: 2h 14m ago
+
+=== LANGUAGE PREFERENCES ===
+SectionLabel: "LANGUAGE"
+Three full-width button options (not pills — full cards):
+English | हिंदी | ಕನ್ನಡ
+Active one has greenSoft background + green border + checkmark icon on right.
+On select: update context language, show a brief "Language updated" toast.
+
+=== DEVICE & SYSTEM ===
+SectionLabel: "SYSTEM"
+List items (GlassCard, no border top color):
+- Connected to: 192.168.x.x:8080 (cyan dot)
+- Signal Auth: ECC-256 Ready (green dot)
+- App Version: 1.0.0 (textMuted)
+- GPS: Hardware ready (green dot)
+
+=== FUTURE SCOPE CARD ===
+GlassCard, topBorderColor purple, at the bottom:
+Purple label: "COMING SOON"
+Heading: "Universal Pay Integration"
+Body: "Verified dispatch hours automatically calculate compensation. No paperwork. No delays."
+Small purple badge: "Phase 2 · Mid-Term Roadmap"
+
+=== LOGOUT / SWITCH ===
+At the very bottom: "Switch Driver Profile" as a subtle underlined link in textMuted.
+
+Entry animation: all sections fade up with stagger using reanimated.
