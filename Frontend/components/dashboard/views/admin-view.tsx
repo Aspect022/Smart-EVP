@@ -14,7 +14,7 @@ import {
 import { MapPanel, type TrackedAmbulance } from "@/components/dashboard/map-panel"
 import { SignalPanel } from "@/components/dashboard/signal-panel"
 import { RlPanel } from "@/components/dashboard/rl-panel"
-import type { RlDecision } from "@/hooks/use-socket"
+import type { RlDecision, Hospital } from "@/hooks/use-socket"
 
 interface AdminViewProps {
   gps: any
@@ -33,6 +33,7 @@ interface AdminViewProps {
   rlDecision: RlDecision | null
   trafficDensity: number
   onDensityChange: (density: number) => void
+  selectedHospital?: Hospital | null
 }
 
 export function AdminView({
@@ -51,6 +52,7 @@ export function AdminView({
   rlDecision,
   trafficDensity,
   onDensityChange,
+  selectedHospital,
 }: AdminViewProps) {
   const [audioRunning, setAudioRunning] = useState(false)
   const [revealedCount, setRevealedCount] = useState(0)
@@ -118,10 +120,10 @@ export function AdminView({
     return [
       { label: "Case", value: currentCaseId },
       { label: "Stage", value: activeCase ? caseStatus.replaceAll("_", " ") : "Awaiting dispatch" },
+      { label: "Hospital", value: selectedHospital?.short_name || selectedHospital?.name || "Pending" },
       { label: "Transcript", value: transcript ? "Live" : "Pending" },
-      { label: "Brief", value: medicalBrief ? "Ready" : "Pending" },
     ]
-  }, [activeCase, caseStatus, medicalBrief, transcript])
+  }, [activeCase, caseStatus, selectedHospital, transcript])
 
   const adminStatusCards = useMemo(() => {
     return [

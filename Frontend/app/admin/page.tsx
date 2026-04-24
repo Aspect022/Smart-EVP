@@ -25,6 +25,7 @@ function AdminConsoleContent() {
     rlDecision,
     trafficDensity,
     setTrafficDensity,
+    selectedHospital,
   } = useSocket()
 
   const handleStartDemo = async () => {
@@ -68,6 +69,7 @@ function AdminConsoleContent() {
           rlDecision={rlDecision}
           trafficDensity={trafficDensity}
           onDensityChange={setTrafficDensity}
+          selectedHospital={selectedHospital}
         />
       </main>
     </div>
