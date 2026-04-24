@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, Download, HeartPulse, MapPin, Siren, Timer } from "lucide-react"
 
-import type { CaseStatus } from "@/hooks/use-socket"
+import type { CaseStatus, Hospital, HospitalRecommendation } from "@/hooks/use-socket"
 
 interface HospitalViewProps {
   brief: any
@@ -13,6 +13,8 @@ interface HospitalViewProps {
   connected: boolean
   caseStatus: CaseStatus
   etaSeconds: number | null
+  selectedHospital: Hospital | null
+  hospitalRecommendation: HospitalRecommendation | null
 }
 
 interface IncomingCase {
@@ -124,6 +126,8 @@ export function HospitalView({
   connected,
   caseStatus,
   etaSeconds,
+  selectedHospital,
+  hospitalRecommendation,
 }: HospitalViewProps) {
   const [cases, setCases] = useState<IncomingCase[]>([])
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
@@ -328,6 +332,14 @@ export function HospitalView({
                 <div className="rounded-sm border border-border bg-bg2 p-4">
                   <div className="mb-2 text-xs font-mono uppercase tracking-[0.18em] text-text-muted">ETA</div>
                   <div className="font-mono text-2xl text-text">{formatEta(selectedCase.etaSeconds)}</div>
+                  {selectedCase.etaSeconds !== null && selectedCase.etaSeconds > 0 && (
+                    <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-border">
+                      <div
+                        className="h-full bg-cyan transition-all duration-1000"
+                        style={{ width: `${Math.max(5, Math.min(100, 100 - (selectedCase.etaSeconds / 300) * 100))}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="rounded-sm border border-border bg-bg2 p-4">
                   <div className="mb-2 text-xs font-mono uppercase tracking-[0.18em] text-text-muted">Priority</div>
@@ -346,6 +358,42 @@ export function HospitalView({
                   </div>
                 </div>
               </div>
+
+              {/* Hospital destination card */}
+              {selectedHospital && (
+                <div className="rounded-sm border border-green/30 bg-green/5 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-xs font-mono uppercase tracking-[0.18em] text-green">Destination Hospital</div>
+                    {hospitalRecommendation?.ai_model_used && (
+                      <span className="text-[9px] font-mono text-purple-400">
+                        ● {hospitalRecommendation.ai_model_used.toUpperCase()} ranked
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-mono text-lg font-bold text-text">{selectedHospital.name}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-text-muted">
+                    {selectedHospital.distance_km != null && (
+                      <span>{selectedHospital.distance_km}km from patient</span>
+                    )}
+                    {selectedHospital.type && <span>· {selectedHospital.type}</span>}
+                    {selectedHospital.beds_icu && <span>· {selectedHospital.beds_icu} ICU beds</span>}
+                  </div>
+                  {selectedHospital.reasoning && (
+                    <p className="mt-2 text-xs text-text-muted leading-relaxed">
+                      {selectedHospital.reasoning}
+                    </p>
+                  )}
+                  {selectedHospital.specialties?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {selectedHospital.specialties.map((s: string) => (
+                        <span key={s} className="text-[10px] font-mono px-1.5 py-0.5 bg-green/10 text-green border border-green/20 rounded-sm">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-sm border border-border bg-bg2 p-4">
@@ -454,12 +502,17 @@ export function HospitalView({
                   </div>
                   <div className="text-sm text-text">
                     {item.status === "EN_ROUTE_HOSPITAL" || item.status === "ARRIVING"
-                      ? `${item.patientName} is inbound`
-                      : `${item.patientName} linked from control room`}
+                      ? `${item.patientName} inbound`
+                      : `${item.patientName} linked`}
                   </div>
                   <div className="mt-1 text-xs text-text-dim">
                     {item.location} · {item.status.replaceAll("_", " ")}
                   </div>
+                  {selectedHospital && item.id === selectedCaseId && (
+                    <div className="mt-1 text-[10px] font-mono text-green">
+                      → {selectedHospital.short_name ?? selectedHospital.name}
+                    </div>
+                  )}
                 </button>
               )
             })}

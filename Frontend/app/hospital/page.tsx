@@ -15,6 +15,8 @@ function HospitalReadinessContent() {
     connected,
     caseStatus,
     etaSeconds,
+    selectedHospital,
+    hospitalRecommendation,
   } = useSocket()
 
   return (
@@ -33,6 +35,8 @@ function HospitalReadinessContent() {
           connected={connected}
           caseStatus={caseStatus}
           etaSeconds={etaSeconds}
+          selectedHospital={selectedHospital}
+          hospitalRecommendation={hospitalRecommendation}
         />
       </main>
     </div>
