@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import re
+import time
 
 import requests
 
@@ -69,7 +70,7 @@ def brief_with_note(note: str):
 
 def call_ollama(transcript: str):
     if not Config.OLLAMA_BASE_URL:
-      return None
+        return None
 
     url = f"{Config.OLLAMA_BASE_URL.rstrip('/')}/api/generate"
     payload = {
@@ -78,11 +79,21 @@ def call_ollama(transcript: str):
         "stream": False,
     }
 
-    logger.info("Trying Ollama brief generation via %s", url)
-    resp = requests.post(url, json=payload, timeout=20)
-    resp.raise_for_status()
-    response_text = resp.json().get("response", "").strip()
-    return parse_json_response(response_text)
+    logger.info("Trying Ollama (%s) for medical brief", Config.OLLAMA_MODEL)
+    try:
+        resp = requests.post(url, json=payload, timeout=30)
+        resp.raise_for_status()
+        response_text = resp.json().get("response", "").strip()
+        if not response_text:
+            logger.warning("Ollama returned empty response")
+            return None
+        return parse_json_response(response_text)
+    except requests.exceptions.ConnectionError:
+        logger.warning("Ollama unreachable at %s — falling back to Gemini", Config.OLLAMA_BASE_URL)
+        return None
+    except requests.exceptions.Timeout:
+        logger.warning("Ollama timed out — falling back to Gemini")
+        return None
 
 
 def call_gemini(transcript: str):
@@ -109,25 +120,53 @@ def call_gemini(transcript: str):
         "Content-Type": "application/json",
     }
 
-    logger.info("Trying Gemini brief generation via %s", Config.GEMINI_MODEL)
-    resp = requests.post(url, headers=headers, json=payload, timeout=20)
-    resp.raise_for_status()
-    body = resp.json()
-    candidates = body.get("candidates", [])
-    if not candidates:
-        raise ValueError(f"Gemini returned no candidates: {body}")
+    max_retries = 3
+    backoff = 2  # seconds
 
-    parts = candidates[0].get("content", {}).get("parts", [])
-    response_text = "".join(part.get("text", "") for part in parts).strip()
-    if not response_text:
-        raise ValueError(f"Gemini returned empty text: {body}")
+    for attempt in range(1, max_retries + 1):
+        logger.info(
+            "Gemini brief generation via %s (attempt %d/%d)",
+            Config.GEMINI_MODEL, attempt, max_retries,
+        )
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=25)
 
-    return parse_json_response(response_text)
+            # Retry on rate-limit or server overload
+            if resp.status_code in (429, 503):
+                wait = backoff * (2 ** (attempt - 1))
+                logger.warning(
+                    "Gemini %s — backing off %ds before retry",
+                    resp.status_code, wait,
+                )
+                time.sleep(wait)
+                continue
+
+            resp.raise_for_status()
+            body = resp.json()
+            candidates = body.get("candidates", [])
+            if not candidates:
+                raise ValueError(f"Gemini returned no candidates: {body}")
+
+            parts = candidates[0].get("content", {}).get("parts", [])
+            response_text = "".join(part.get("text", "") for part in parts).strip()
+            if not response_text:
+                raise ValueError(f"Gemini returned empty text: {body}")
+
+            return parse_json_response(response_text)
+
+        except json.JSONDecodeError as exc:
+            raise exc  # re-raise so generate_medical_brief can log it
+
+    raise RuntimeError(
+        f"Gemini {Config.GEMINI_MODEL} still rate-limited after {max_retries} retries"
+    )
 
 
 def generate_medical_brief(transcript):
+    """Try Ollama first (gpt-oss:120b-cloud), then Gemini, then hardcoded fallback."""
     last_error = None
 
+    # Primary: Ollama cloud model — fast, no external rate limits
     for provider_name, provider in (("Ollama", call_ollama), ("Gemini", call_gemini)):
         try:
             result = provider(transcript)
@@ -141,8 +180,5 @@ def generate_medical_brief(transcript):
             logger.error("%s request failed: %s", provider_name, error)
             last_error = f"{provider_name} unavailable: {error}"
 
-    if not Config.OLLAMA_BASE_URL and not Config.GEMINI_API_KEY:
-        logger.warning("No Ollama or Gemini configuration found. Using fallback brief.")
-        return copy.deepcopy(FALLBACK_BRIEF)
-
+    logger.warning("All AI providers failed — using hardcoded fallback brief. Last error: %s", last_error)
     return brief_with_note(last_error or "No AI provider returned a valid brief.")

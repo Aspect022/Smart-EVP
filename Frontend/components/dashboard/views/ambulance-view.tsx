@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { CheckCircle, Navigation } from "lucide-react"
 
 import type { CaseStatus, Hospital, HospitalRecommendation } from "@/hooks/use-socket"
@@ -9,6 +9,7 @@ import { CorridorBar } from "@/components/ambulance/corridor-bar"
 import { CasePanel } from "@/components/ambulance/case-panel"
 import { TranscriptPanel } from "@/components/ambulance/transcript-panel"
 import { CompactBrief } from "@/components/ambulance/compact-brief"
+import { VoiceInputBox } from "@/components/ambulance/voice-input-box"
 import { getBackendUrl } from "@/lib/socket"
 
 interface AmbulanceViewProps {
@@ -44,6 +45,9 @@ export function AmbulanceView({
   rlDecision,
   onSelectHospital,
 }: AmbulanceViewProps) {
+  // Local brief override from voice input — takes priority over socket brief
+  const [localBrief, setLocalBrief] = useState<any | null>(null)
+  const activeBrief = localBrief ?? brief
 
   const updateStatus = async (status: CaseStatus, eta?: number) => {
     try {
@@ -107,13 +111,18 @@ export function AmbulanceView({
         />
       </div>
 
-      {/* ── Row 3: Transcript + Compact Brief ───────────────────────── */}
+      {/* ── Row 3: Transcript + Voice Input + Compact Brief ─────────── */}
       <div className="flex min-h-0 flex-1 border-t border-border">
-        <div className="flex-1 min-w-0">
-          <TranscriptPanel transcript={transcript} />
+        {/* Left: Transcript + Voice Input stacked */}
+        <div className="flex flex-1 min-w-0 flex-col">
+          <div className="flex-1 min-h-0">
+            <TranscriptPanel transcript={transcript} />
+          </div>
+          <VoiceInputBox onBriefGenerated={setLocalBrief} />
         </div>
+        {/* Right: AI Brief */}
         <div className="w-[320px] shrink-0 border-l border-border">
-          <CompactBrief brief={brief} />
+          <CompactBrief brief={activeBrief} />
         </div>
       </div>
 

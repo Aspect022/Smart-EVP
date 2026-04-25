@@ -2,17 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react"
 import {
-  Activity,
   Ambulance,
   LocateFixed,
   Radio,
   Shield,
-  Siren,
   Wifi,
 } from "lucide-react"
 
 import { MapPanel, type TrackedAmbulance } from "@/components/dashboard/map-panel"
-import { SignalPanel } from "@/components/dashboard/signal-panel"
 import { RlPanel } from "@/components/dashboard/rl-panel"
 import type { RlDecision, Hospital } from "@/hooks/use-socket"
 
@@ -115,15 +112,7 @@ export function AdminView({
   const selectedAmbulance =
     trackedAmbulances.find((item) => item.id === selectedAmbulanceId) ?? trackedAmbulances[0]
 
-  const commandSnapshot = useMemo(() => {
-    const currentCaseId = activeCase?.id || activeCase?.case_id || "Standby"
-    return [
-      { label: "Case", value: currentCaseId },
-      { label: "Stage", value: activeCase ? caseStatus.replaceAll("_", " ") : "Awaiting dispatch" },
-      { label: "Hospital", value: selectedHospital?.short_name || selectedHospital?.name || "Pending" },
-      { label: "Transcript", value: transcript ? "Live" : "Pending" },
-    ]
-  }, [activeCase, caseStatus, selectedHospital, transcript])
+
 
   const adminStatusCards = useMemo(() => {
     return [
@@ -161,7 +150,7 @@ export function AdminView({
       {
         label: "Voice",
         tone: transcript ? "text-cyan" : "text-red",
-        icon: Activity,
+        icon: Radio,
       },
       {
         label: "Brief",
@@ -214,7 +203,7 @@ export function AdminView({
     terminalLines.forEach((_, index) => {
       const timeoutId = window.setTimeout(() => {
         setRevealedCount(index + 1)
-      }, index * 5000)
+      }, index * 800)
       timeouts.push(timeoutId)
     })
 
@@ -282,25 +271,7 @@ export function AdminView({
 
         <div className="grid h-full w-[520px] grid-cols-[272px_248px] border-r border-border bg-bg2">
           <div className="flex min-h-0 flex-col border-r border-border">
-            <div className="shrink-0 border-b border-border">
-              <SignalPanel
-                state={signal}
-                latency={latency}
-                preemptionCount={preemptionCount}
-                caseStatus={caseStatus}
-              />
-            </div>
-
-            {/* RL Panel below signal */}
-            <div className="shrink-0 border-b border-border">
-              <RlPanel
-                rlDecision={rlDecision}
-                trafficDensity={trafficDensity}
-                onDensityChange={onDensityChange}
-                connected={connected}
-              />
-            </div>
-
+            {/* Trigger Demo — pinned at top */}
             <div className="shrink-0 border-b border-border bg-bg px-4 py-3">
               <button
                 onClick={handleStartDemo}
@@ -311,57 +282,28 @@ export function AdminView({
               </button>
             </div>
 
-            <div className="shrink-0 border-b border-border bg-bg px-4 py-3">
-              <div className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-                <Activity className="h-3.5 w-3.5 text-cyan" />
-                Command Snapshot
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {commandSnapshot.map((item) => (
-                  <div key={item.label} className="rounded-sm border border-border bg-bg2 px-2.5 py-2">
-                    <div className="text-[9px] font-mono uppercase tracking-[0.16em] text-text-muted">{item.label}</div>
-                    <div className="mt-1 text-xs font-medium text-text">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 p-4">
-              <div className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-                <Siren className="h-3.5 w-3.5 text-red" />
-                Recent Control Feed
-              </div>
-              <div className="min-h-0 max-h-full space-y-2 overflow-y-auto">
-                {recentAudit.length > 0 ? (
-                  recentAudit.map((entry, index) => (
-                    <div key={`${entry.ts}-${entry.event}-${index}`} className="rounded-sm border border-border bg-bg2 px-3 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-cyan">{entry.event}</div>
-                        <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-text-muted">{entry.ts}</div>
-                      </div>
-                      <div className="mt-2 text-xs leading-5 text-text-dim">{entry.data}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-sm border border-dashed border-border bg-bg2 px-3 py-3 text-xs leading-5 text-text-dim">
-                    Trigger a demo call to populate the live control feed with dispatch, signal, voice, and status events.
-                  </div>
-                )}
-              </div>
+            {/* EdgeIQ — fills remaining height, fully scrollable */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <RlPanel
+                rlDecision={rlDecision}
+                trafficDensity={trafficDensity}
+                onDensityChange={onDensityChange}
+                connected={connected}
+              />
             </div>
           </div>
 
           <div className="flex min-h-0 flex-col bg-bg">
-            <div className="border-b border-border p-4">
-              <div className="mb-3 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-text-muted">
-                <Shield className="h-3.5 w-3.5 text-green" />
-                Admin Status
+            <div className="border-b border-border px-3 py-2.5">
+              <div className="mb-2 flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-[0.18em] text-text-muted">
+                <Shield className="h-3 w-3 text-green" />
+                Operational Metrics
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
                 {adminStatusCards.map((item) => (
-                  <div key={item.label} className="rounded-sm border border-border bg-bg2 px-3 py-2.5">
-                    <div className="text-[9px] font-mono uppercase tracking-[0.16em] text-text-muted">{item.label}</div>
-                    <div className={`mt-1 text-sm font-semibold ${item.tone}`}>{item.value}</div>
+                  <div key={item.label} className="rounded-sm border border-border bg-bg2 px-2 py-1.5">
+                    <div className="text-[9px] font-mono uppercase tracking-[0.14em] text-text-muted">{item.label}</div>
+                    <div className={`mt-0.5 text-xs font-semibold ${item.tone}`}>{item.value}</div>
                   </div>
                 ))}
               </div>
@@ -444,22 +386,23 @@ export function AdminView({
         </div>
       </div>
 
-      <div className="h-52 flex-shrink-0 border-t border-border bg-black px-4 py-3">
+      <div className="h-28 flex-shrink-0 border-t border-border bg-black px-4 py-2">
         <div
-          className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400"
+          className="mb-1 flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] text-slate-500"
           style={{ fontFamily: "'Segoe UI', Calibri, Arial, sans-serif" }}
         >
-          Event Logs
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          Event Log — Live
         </div>
-        <div className="h-[calc(100%-20px)] overflow-auto bg-black px-2 py-1">
+        <div className="h-[calc(100%-18px)] overflow-auto bg-black px-2 py-0.5">
           <div
-            className="space-y-1 text-sm text-slate-300"
+            className="space-y-0.5 text-xs text-slate-300"
             style={{
               fontFamily: "Consolas, 'Cascadia Mono', 'Courier New', monospace",
             }}
           >
             {terminalLines.slice(0, revealedCount).map((line, index) => (
-              <div key={`${line}-${index}`} className="leading-6">
+              <div key={`${line}-${index}`} className="leading-5">
                 <span className="text-slate-500">&gt;</span>{" "}
                 <span>{line}</span>
               </div>
